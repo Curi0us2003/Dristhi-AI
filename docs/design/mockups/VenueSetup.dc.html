@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Event setup, venue map</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#0B5E52}a:hover{color:#08443B}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #F4F5F1; font-family: Inter, Arial, sans-serif; color: #14202E; display: flex; flex-direction: column">
+<header style="background: #FCFCFA; border-bottom: 1px solid #E3E6E0; padding: 16px 32px; display: flex; flex-wrap: wrap; align-items: center; gap: 24px">
+<div style="display: flex; align-items: center; gap: 10px">
+<div style="width: 32px; height: 32px; border-radius: 10px; background: #0E7C6B; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FCFCFA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></div>
+<span style="font-family: 'Space Grotesk', Arial, sans-serif; font-size: 18px; font-weight: 600">New event</span>
+</div>
+<ol aria-label="Setup steps" style="list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px">
+<li style="display: flex; align-items: center; gap: 8px; color: #3B4655"><span style="width: 22px; height: 22px; border-radius: 50%; background: #0E7C6B; display: flex; align-items: center; justify-content: center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FCFCFA" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span>Event<span aria-hidden="true" style="width: 24px; height: 1px; background: #D3D9D1"></span></li>
+<li style="display: flex; align-items: center; gap: 8px; color: #3B4655"><span style="width: 22px; height: 22px; border-radius: 50%; background: #0E7C6B; display: flex; align-items: center; justify-content: center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FCFCFA" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span>Cameras<span aria-hidden="true" style="width: 24px; height: 1px; background: #D3D9D1"></span></li>
+<li aria-current="step" style="display: flex; align-items: center; gap: 8px; font-weight: 600; color: #0B5E52"><span style="width: 22px; height: 22px; border-radius: 50%; border: 2px solid #0E7C6B; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 11px">3</span>Venue map<span aria-hidden="true" style="width: 24px; height: 1px; background: #D3D9D1"></span></li>
+<li style="display: flex; align-items: center; gap: 8px; color: #5B6675"><span style="width: 22px; height: 22px; border-radius: 50%; border: 1px solid #C5CCC3; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 11px">4</span>Guards<span aria-hidden="true" style="width: 24px; height: 1px; background: #D3D9D1"></span></li>
+<li style="display: flex; align-items: center; gap: 8px; color: #5B6675"><span style="width: 22px; height: 22px; border-radius: 50%; border: 1px solid #C5CCC3; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 11px">5</span>Passes</li>
+</ol>
+<div style="flex: 1"></div>
+<button type="button" style="font: inherit; font-size: 14px; color: #3B4655; background: transparent; border: 1px solid #D3D9D1; border-radius: 10px; padding: 9px 14px; cursor: pointer">Save draft</button>
+</header>
+<div style="flex: 1; display: flex; flex-wrap: wrap; gap: 24px; padding: 24px 32px">
+<section aria-labelledby="map-h" style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 8px">
+<div><h1 id="map-h" style="margin: 0; font-family: 'Space Grotesk', Arial, sans-serif; font-size: 26px; font-weight: 600; letter-spacing: -0.3px">Draw the venue map</h1><p style="margin: 4px 0 0; font-size: 14px; color: #5B6675">Outline each zone, then drop facilities attendees will look for.</p></div>
+<span style="font-size: 13px; color: #5B6675">Drawing: Zone 4 · click to add corners, double-click to finish</span>
+</div>
+<div style="position: relative; border-radius: 16px; overflow: hidden; border: 1px solid #E3E6E0; background: #E9ECE5">
+<svg viewBox="0 0 900 560" width="100%" role="img" aria-label="Venue map with three zones, a fourth being drawn, and facility markers" style="display: block">
+<rect width="900" height="560" fill="#E9ECE5"/>
+<path d="M0 180 H900 M0 420 H900 M260 0 V560 M640 0 V560" stroke="#FCFCFA" stroke-width="22"/>
+<path d="M0 300 H260 M640 90 H900" stroke="#FCFCFA" stroke-width="10"/>
+<polygon points="40,30 230,30 230,160 40,160" fill="#0E7C6B" fill-opacity="0.14" stroke="#0E7C6B" stroke-width="2"/>
+<text x="56" y="58" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="600" fill="#0B5E52">Main Entrance</text>
+<text x="56" y="78" font-family="Inter, Arial, sans-serif" font-size="12" fill="#3B4655">capacity 50</text>
+<polygon points="290,200 610,200 610,400 290,400" fill="#0E7C6B" fill-opacity="0.14" stroke="#0E7C6B" stroke-width="2"/>
+<text x="306" y="228" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="600" fill="#0B5E52">Mall Stage</text>
+<text x="306" y="248" font-family="Inter, Arial, sans-serif" font-size="12" fill="#3B4655">capacity 100</text>
+<polygon points="670,200 870,200 870,400 670,400" fill="#0E7C6B" fill-opacity="0.14" stroke="#0E7C6B" stroke-width="2"/>
+<text x="686" y="228" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="600" fill="#0B5E52">Market</text>
+<text x="686" y="248" font-family="Inter, Arial, sans-serif" font-size="12" fill="#3B4655">capacity 60</text>
+<polyline points="290,440 610,440 610,540 420,540" fill="#234E86" fill-opacity="0.08" stroke="#234E86" stroke-width="2" stroke-dasharray="6 5"/>
+<circle cx="290" cy="440" r="6" fill="#FCFCFA" stroke="#234E86" stroke-width="2"/>
+<circle cx="610" cy="440" r="6" fill="#FCFCFA" stroke="#234E86" stroke-width="2"/>
+<circle cx="610" cy="540" r="6" fill="#FCFCFA" stroke="#234E86" stroke-width="2"/>
+<circle cx="420" cy="540" r="6" fill="#234E86"/>
+<g><circle cx="200" cy="130" r="14" fill="#234E86"/><text x="200" y="134" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="10" font-weight="600" fill="#FCFCFA">WC</text></g>
+<g><circle cx="580" cy="370" r="14" fill="#234E86"/><text x="580" y="374" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="10" font-weight="600" fill="#FCFCFA">WC</text></g>
+<g><circle cx="320" cy="370" r="14" fill="#C2410C"/><path d="M320 363v14M313 370h14" stroke="#FCFCFA" stroke-width="2.5" stroke-linecap="round"/></g>
+<g><circle cx="840" cy="370" r="14" fill="#0E7C6B"/><path d="M834 370h11M841 365l5 5-5 5" stroke="#FCFCFA" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g><circle cx="700" cy="370" r="14" fill="#2B6CB0"/><path d="M700 362c-4 5-6 8-6 10a6 6 0 0 0 12 0c0-2-2-5-6-10z" fill="#FCFCFA"/></g>
+<g><rect x="96" y="96" width="26" height="20" rx="4" fill="#14202E"/><path d="M122 102l7-4v12l-7-4" fill="#14202E"/></g>
+<g><rect x="430" y="300" width="26" height="20" rx="4" fill="#14202E"/><path d="M456 306l7-4v12l-7-4" fill="#14202E"/></g>
+</svg>
+<div style="position: absolute; left: 16px; top: 16px; display: flex; flex-direction: column; gap: 4px; background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 12px; padding: 4px">
+<button type="button" aria-label="Zoom in" style="width: 36px; height: 36px; border: 0; border-radius: 8px; background: transparent; color: #3B4655; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+<button type="button" aria-label="Zoom out" style="width: 36px; height: 36px; border: 0; border-radius: 8px; background: transparent; color: #3B4655; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg></button>
+</div>
+</div>
+</section>
+<aside aria-label="Map tools" style="flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<section aria-labelledby="add-h" style="background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 16px; padding: 20px">
+<h2 id="add-h" style="margin: 0 0 12px; font-size: 15px; font-weight: 600">Add to map</h2>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<button type="button" style="display: flex; align-items: center; gap: 8px; font: inherit; font-size: 14px; font-weight: 600; color: #0B5E52; background: #E3F1EC; border: 1px solid #0E7C6B; border-radius: 10px; padding: 10px 12px; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l8-3 8 5-2 11-10 2z"/></svg>Zone</button>
+<button type="button" style="display: flex; align-items: center; gap: 8px; font: inherit; font-size: 14px; color: #14202E; background: #FCFCFA; border: 1px solid #D3D9D1; border-radius: 10px; padding: 10px 12px; cursor: pointer"><span style="width: 14px; height: 14px; border-radius: 50%; background: #14202E"></span>Camera</button>
+<button type="button" style="display: flex; align-items: center; gap: 8px; font: inherit; font-size: 14px; color: #14202E; background: #FCFCFA; border: 1px solid #D3D9D1; border-radius: 10px; padding: 10px 12px; cursor: pointer"><span style="width: 14px; height: 14px; border-radius: 50%; background: #234E86"></span>Washroom</button>
+<button type="button" style="display: flex; align-items: center; gap: 8px; font: inherit; font-size: 14px; color: #14202E; background: #FCFCFA; border: 1px solid #D3D9D1; border-radius: 10px; padding: 10px 12px; cursor: pointer"><span style="width: 14px; height: 14px; border-radius: 50%; background: #C2410C"></span>First aid</button>
+<button type="button" style="display: flex; align-items: center; gap: 8px; font: inherit; font-size: 14px; color: #14202E; background: #FCFCFA; border: 1px solid #D3D9D1; border-radius: 10px; padding: 10px 12px; cursor: pointer"><span style="width: 14px; height: 14px; border-radius: 50%; background: #0E7C6B"></span>Exit</button>
+<button type="button" style="display: flex; align-items: center; gap: 8px; font: inherit; font-size: 14px; color: #14202E; background: #FCFCFA; border: 1px solid #D3D9D1; border-radius: 10px; padding: 10px 12px; cursor: pointer"><span style="width: 14px; height: 14px; border-radius: 50%; background: #2B6CB0"></span>Water</button>
+<button type="button" style="display: flex; align-items: center; gap: 8px; font: inherit; font-size: 14px; color: #14202E; background: #FCFCFA; border: 1px solid #D3D9D1; border-radius: 10px; padding: 10px 12px; cursor: pointer"><span style="width: 14px; height: 14px; border-radius: 50%; background: #8A5A00"></span>Lost and found</button>
+<button type="button" style="display: flex; align-items: center; gap: 8px; font: inherit; font-size: 14px; color: #14202E; background: #FCFCFA; border: 1px solid #D3D9D1; border-radius: 10px; padding: 10px 12px; cursor: pointer"><span style="width: 14px; height: 14px; border-radius: 50%; background: #6B4FA0"></span>Cloak room</button>
+</div>
+</section>
+<section aria-labelledby="zones-h" style="background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 16px; padding: 20px">
+<h2 id="zones-h" style="margin: 0 0 4px; font-size: 15px; font-weight: 600">Zones</h2>
+<ul style="list-style: none; margin: 0; padding: 0; font-size: 14px">
+<li style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #ECEFE9"><span>Main Entrance</span><span style="color: #5B6675">cap. 50 · 1 camera</span></li>
+<li style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #ECEFE9"><span>Mall Stage</span><span style="color: #5B6675">cap. 100 · 1 camera</span></li>
+<li style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #ECEFE9"><span>Market</span><span style="color: #5B6675">cap. 60 · no camera</span></li>
+<li style="display: flex; justify-content: space-between; padding: 10px 0; color: #234E86; font-weight: 500"><span>Zone 4 (drawing)</span><span>3 corners</span></li>
+</ul>
+</section>
+<section aria-labelledby="legend-h" style="background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 16px; padding: 20px">
+<h2 id="legend-h" style="margin: 0 0 4px; font-size: 15px; font-weight: 600">Legend attendees will see</h2>
+<p style="margin: 0 0 12px; font-size: 13px; color: #5B6675">Shown on the attendee map and in chatbot directions.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; font-size: 13px">
+<span style="display: flex; align-items: center; gap: 6px; background: #F4F5F1; border-radius: 999px; padding: 5px 10px"><span style="width: 10px; height: 10px; border-radius: 50%; background: #234E86"></span>Washroom · 2</span>
+<span style="display: flex; align-items: center; gap: 6px; background: #F4F5F1; border-radius: 999px; padding: 5px 10px"><span style="width: 10px; height: 10px; border-radius: 50%; background: #C2410C"></span>First aid · 1</span>
+<span style="display: flex; align-items: center; gap: 6px; background: #F4F5F1; border-radius: 999px; padding: 5px 10px"><span style="width: 10px; height: 10px; border-radius: 50%; background: #0E7C6B"></span>Exit · 1</span>
+<span style="display: flex; align-items: center; gap: 6px; background: #F4F5F1; border-radius: 999px; padding: 5px 10px"><span style="width: 10px; height: 10px; border-radius: 50%; background: #2B6CB0"></span>Water · 1</span>
+</div>
+</section>
+</aside>
+</div>
+<footer style="background: #FCFCFA; border-top: 1px solid #E3E6E0; padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px">
+<button type="button" style="font: inherit; font-size: 14px; color: #3B4655; background: transparent; border: 1px solid #D3D9D1; border-radius: 10px; padding: 10px 16px; cursor: pointer">Back to cameras</button>
+<button type="button" style="font: inherit; font-size: 14px; font-weight: 600; color: #FCFCFA; background: #0E7C6B; border: 0; border-radius: 10px; padding: 11px 18px; cursor: pointer">Continue to guards</button>
+</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

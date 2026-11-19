@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Attendee map, nearest washroom</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#0B5E52}a:hover{color:#08443B}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #E9ECE5; font-family: Inter, Arial, sans-serif; color: #14202E; position: relative; overflow: hidden">
+<svg viewBox="0 0 390 844" width="390" height="844" role="img" aria-label="Venue map showing your location and two washrooms, the nearest one 80 metres away" style="position: absolute; left: 0; top: 0">
+<rect width="390" height="844" fill="#E9ECE5"/>
+<path d="M0 250 H390 M0 520 H390 M110 0 V844 M290 0 V844" stroke="#FCFCFA" stroke-width="18"/>
+<rect x="128" y="268" width="146" height="234" rx="6" fill="#0E7C6B" fill-opacity="0.12" stroke="#0E7C6B" stroke-opacity="0.5" stroke-width="1.5"/>
+<text x="140" y="290" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="600" fill="#0B5E52">Mall Stage</text>
+<rect x="10" y="100" width="88" height="138" rx="6" fill="#0E7C6B" fill-opacity="0.12" stroke="#0E7C6B" stroke-opacity="0.5" stroke-width="1.5"/>
+<text x="18" y="120" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="600" fill="#0B5E52">Entrance</text>
+<rect x="302" y="268" width="80" height="234" rx="6" fill="#0E7C6B" fill-opacity="0.12" stroke="#0E7C6B" stroke-opacity="0.5" stroke-width="1.5"/>
+<text x="310" y="290" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="600" fill="#0B5E52">Market</text>
+<path d="M200 420 V520 H290 V560" fill="none" stroke="#234E86" stroke-width="4" stroke-dasharray="2 8" stroke-linecap="round"/>
+<circle cx="200" cy="420" r="28" fill="#2B6CB0" fill-opacity="0.15"/>
+<circle cx="200" cy="420" r="9" fill="#2B6CB0" stroke="#FCFCFA" stroke-width="3"/>
+<g><circle cx="290" cy="578" r="20" fill="#234E86" stroke="#FCFCFA" stroke-width="3"/><text x="290" y="583" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="600" fill="#FCFCFA">WC</text></g>
+<g opacity="0.55"><circle cx="54" cy="190" r="15" fill="#234E86"/><text x="54" y="194" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="10" font-weight="600" fill="#FCFCFA">WC</text></g>
+<g opacity="0.55"><circle cx="340" cy="330" r="12" fill="#C2410C"/><path d="M340 324v12M334 330h12" stroke="#FCFCFA" stroke-width="2" stroke-linecap="round"/></g>
+<g opacity="0.55"><circle cx="340" cy="460" r="12" fill="#2B6CB0"/></g>
+</svg>
+<header style="position: absolute; left: 16px; right: 16px; top: 20px; display: flex; align-items: center; gap: 10px; background: #FCFCFA; border-radius: 16px; padding: 8px 8px 8px 12px; box-shadow: 0 4px 16px rgba(20, 32, 46, 0.10)">
+<a href="AttendeeChat.dc.html" aria-label="Back to chat" style="width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #14202E"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></a>
+<div style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 600">Nearest washrooms</span><span style="font-size: 12px; color: #5B6675">From your location · ±25 m</span></div>
+</header>
+<section aria-labelledby="near-h" style="position: absolute; left: 0; right: 0; bottom: 0; background: #FCFCFA; border-radius: 24px 24px 0 0; padding: 12px 20px 28px; box-shadow: 0 -4px 20px rgba(20, 32, 46, 0.10); display: flex; flex-direction: column; gap: 14px">
+<div aria-hidden="true" style="width: 40px; height: 4px; border-radius: 2px; background: #D3D9D1; align-self: center"></div>
+<h2 id="near-h" style="position: absolute; width: 1px; height: 1px; overflow: hidden; margin: 0">Washrooms near you</h2>
+<div style="display: flex; align-items: center; gap: 12px; padding: 12px; border: 2px solid #234E86; border-radius: 14px; background: #EEF3FA">
+<span style="width: 40px; height: 40px; border-radius: 12px; background: #234E86; color: #FCFCFA; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center">WC</span>
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 600">Washroom · Stage south</span><span style="font-size: 13px; color: #3B4655">80 m · about 1 min walk</span></div>
+<span style="font-size: 12px; font-weight: 600; color: #234E86">Nearest</span>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid #E3E6E0; border-radius: 14px">
+<span style="width: 40px; height: 40px; border-radius: 12px; background: #E3ECF8; color: #234E86; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center">WC</span>
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 500">Washroom · Main Entrance</span><span style="font-size: 13px; color: #3B4655">260 m · about 4 min walk</span></div>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; font-size: 12px; color: #3B4655">
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 50%; background: #2B6CB0"></span>You</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 50%; background: #234E86"></span>Washroom</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 50%; background: #C2410C"></span>First aid</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 50%; background: #2B6CB0; opacity: 0.55"></span>Water</span>
+</div>
+<button type="button" style="font: inherit; font-size: 14px; font-weight: 500; color: #3B4655; background: transparent; border: 1px solid #D3D9D1; border-radius: 12px; min-height: 44px; cursor: pointer">Location wrong? Pick your zone</button>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

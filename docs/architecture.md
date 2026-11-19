@@ -1,0 +1,114 @@
+# Target architecture and decisions
+
+This is the design the task files build toward. If a task and this file disagree, follow the
+task and point out the conflict in your report.
+
+## At a glance
+
+```
+Operators (laptop) ─┐                         ┌─ Google Maps JS API (browser)
+Attendees (phone) ──┼─► Firebase Hosting (static Next.js app)
+                    ├─► Firebase Auth (email, Google, phone SMS code)
+                    └─► Cloud Run: FastAPI backend (asia-south1) ◄── cameras / demo videos
+                           ├─ REST API + Server-Sent Events (checks Firebase ID token + role)
+                           ├─ Chatbot + AI agent (Gemini on Vertex AI, function calling)
+                           └─ Camera analysis (OpenCV people counter, one thread per camera)
+                                 │
+                 Cloud SQL Postgres + PostGIS · Cloud Storage · Vertex AI · Secret Manager
+```
+
+## Decisions
+
+| Area | Decision | Why |
+| --- | --- | --- |
+| Backend hosting | FastAPI on Cloud Run, `asia-south1`, CPU always allocated during events | HTTPS built in, no servers, scale to zero between events |
+| Frontend hosting | Firebase Hosting, static export, calls the Cloud Run URL directly | Free tier; the Cloud Function proxy is removed |
+| People counting | OpenCV-based model from Hugging Face behind one function `count_people(frame) -> int` | Smaller image than PyTorch; licence must allow commercial use |
+| Database | Cloud SQL for PostgreSQL 16 + PostGIS; SQLAlchemy 2 + GeoAlchemy2; Alembic migrations | Relational, multi-event data; map queries like nearest washroom |
+| Firestore | Kept only for attendee notifications if convenient; not the system of record | Avoid two sources of truth |
+| Live updates | Server-Sent Events from the backend | Already exists at `/api/stream/updates` |
+| Files | Cloud Storage (videos, report photos, model files); signed URLs | No base64 images in database rows |
+| AI | Gemini on Vertex AI via the `google-genai` SDK (`vertexai=True`), called only from the backend | No API key in the browser; uses the service account |
+| Auth | Firebase Auth on the client; backend verifies ID tokens with `firebase-admin` | Already integrated |
+| Secrets | Secret Manager, mounted as env vars on Cloud Run | No secrets in the repo |
+
+## Backend layout (from task 03 on)
+
+```
+backend/
+  app.py                 entry point: builds the FastAPI app, starts camera processors
+  dristhi/
+    config.py            settings from env vars
+    db.py                engine, session, Base
+    models.py            SQLAlchemy models (tables below)
+    auth.py              Firebase token check, role and event guards (FastAPI dependencies)
+    detection/
+      counter.py         count_people(frame) -> int  (the only place the model is used)
+      processor.py       FeedProcessor threads, ProcessorManager (start/stop per camera)
+    routers/             one module per resource: events, cameras, zones, guards, passes,
+                         grievances, chat, analytics, video
+    services/            ai.py (Gemini), storage.py (Cloud Storage), notify.py
+  migrations/            Alembic
+  tests/                 pytest
+```
+
+## Data model
+
+All tables except `organizations` have `event_id` (or reach an event through a parent).
+Primary keys are UUIDs; timestamps are `timestamptz`.
+
+| Table | Key columns |
+| --- | --- |
+| organizations | id, name |
+| admins | id, organization_id, firebase_uid, email, username, employee_id, role (`owner` / `operator`) |
+| events | id, organization_id, name, venue, city, starts_at, ends_at, status (`draft` / `live` / `ended`), alert_threshold_pct, warning_threshold_pct |
+| zones | id, event_id, name, capacity, polygon (PostGIS `POLYGON`, SRID 4326) |
+| pois | id, event_id, zone_id?, kind (`washroom` / `first_aid` / `exit` / `water` / `lost_found` / `cloak_room` / `help_point` / `stage`), name, location (`POINT`, 4326) |
+| cameras | id, event_id, zone_id, name, source_url, max_capacity, location (`POINT`), status |
+| crowd_readings | id, camera_id, event_id, taken_at, count, density_pct, alert_level |
+| guards | id, event_id, zone_id?, name, phone, status (`active` / `standby` / `alert`) |
+| medical_staff, ambulances | id, event_id, name or number, zone_id?, status |
+| attendees | id, event_id, name, phone, email? |
+| passes | id, event_id, attendee_id, code_hash, expires_at, claimed_by_uid?, claimed_device_id?, claimed_at? |
+| grievances | id, event_id, attendee_id?, type (`medical` / `lost_found` / `missing_person` / `general`), details, urgency, location (`POINT`)?, zone_id?, photo_path?, status (`new` / `assigned` / `resolved`), action_taken |
+| notifications | id, event_id, attendee_id, message, created_at, read_at? |
+
+## API conventions
+
+- Prefix `/api`. Resource routes are nested under events where they belong:
+  `GET /api/events/{event_id}/zones`, `POST /api/events/{event_id}/cameras`.
+- JSON in and out, `snake_case` fields, Pydantic models for every request and response.
+- Errors: `{"error": "<code>", "detail": "<human text>"}` with the right HTTP status.
+- `GET /api/health` stays public. Everything else needs `Authorization: Bearer <Firebase ID token>`.
+
+## Roles
+
+| Role | Can |
+| --- | --- |
+| `owner` (org admin) | Create events; everything an operator can do in the org's events |
+| `operator` | Read and act on events of their organization: cameras, map, guards, grievances, dispatch |
+| `attendee` | Only their own pass, reports and notifications, plus the public map data of their event |
+
+Role is resolved on every request: admin by `admins.firebase_uid`, attendee by `passes.claimed_by_uid`.
+
+## Environment variables (backend)
+
+| Name | Example | Notes |
+| --- | --- | --- |
+| `PORT` | 8080 | Set by Cloud Run |
+| `ENV` | production | Disables auto-reload |
+| `DATABASE_URL` | `postgresql+psycopg://user:pass@/dristhi?host=/cloudsql/PROJECT:asia-south1:dristhi-db` | From Secret Manager |
+| `GCP_PROJECT`, `GCP_REGION` | my-project, asia-south1 | |
+| `GCS_BUCKET` | dristhi-media-dev | Photos, videos, models |
+| `GEMINI_MODEL` | current Gemini Flash model id | Pick the latest Flash model at implementation time |
+| `CORS_ORIGINS` | `https://app.example.com,http://localhost:9002` | Comma-separated |
+| `FEEDS_FILE` | backend/feeds.json | Only until cameras live in the database |
+
+## Limits to design around
+
+- QR passes cannot be made fully share-proof: if the holder forwards both the QR and their SMS
+  code, software cannot tell. A photo-ID check at the gate covers that.
+- Phone GPS is often off by tens of metres indoors; always offer "pick your zone" as a fallback.
+- Mass events may have jammed or overloaded mobile networks. Core monitoring must not depend on
+  attendee phones (cameras and control room are wired); the attendee app works offline where it
+  can and says clearly when something was not sent (task 09).
