@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dristhi operator dashboard</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#0B5E52}a:hover{color:#08443B}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #F4F5F1; font-family: Inter, Arial, sans-serif; color: #14202E; display: flex; flex-wrap: wrap">
+<nav aria-label="Main" style="flex: 1 1 220px; box-sizing: border-box; background: #FCFCFA; border-right: 1px solid #E3E6E0; padding: 24px 16px; display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; align-items: center; gap: 10px; padding: 0 12px 24px">
+<div style="width: 32px; height: 32px; border-radius: 10px; background: #0E7C6B; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FCFCFA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></div>
+<span style="font-family: 'Space Grotesk', Arial, sans-serif; font-size: 20px; font-weight: 600">Dristhi</span>
+</div>
+<a href="#" aria-current="page" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; text-decoration: none; background: #E3F1EC; color: #0B5E52; font-size: 14px; font-weight: 600"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Overview</a>
+<a href="#" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; text-decoration: none; color: #3B4655; font-size: 14px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3"/></svg>Live cameras</a>
+<a href="#" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; text-decoration: none; color: #3B4655; font-size: 14px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>Alerts<span style="margin-left: auto; font-size: 12px; font-weight: 600; background: #FBE4DA; color: #9A3412; padding: 2px 8px; border-radius: 999px">3</span></a>
+<a href="#" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; text-decoration: none; color: #3B4655; font-size: 14px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg>Venue map</a>
+<a href="#" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; text-decoration: none; color: #3B4655; font-size: 14px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 13l2-8h12l2 8v6H4z"/><path d="M4 13h5l1 2h4l1-2h5"/></svg>Reports<span style="margin-left: auto; font-size: 12px; font-weight: 600; background: #ECEFE9; color: #3B4655; padding: 2px 8px; border-radius: 999px">2</span></a>
+<a href="#" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; text-decoration: none; color: #3B4655; font-size: 14px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg>Guards</a>
+<div style="height: 1px; background: #E3E6E0; margin: 16px 12px"></div>
+<a href="#" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; text-decoration: none; color: #3B4655; font-size: 14px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9L7 7M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>Event setup</a>
+</nav>
+<main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 24px 32px 40px; display: flex; flex-direction: column; gap: 24px">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+<button type="button" style="display: flex; align-items: center; gap: 8px; font: inherit; font-size: 14px; font-weight: 600; color: #14202E; background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 10px; padding: 10px 14px; cursor: pointer">[Event name] · Bengaluru<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+<span style="display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: #0B5E52; background: #E3F1EC; padding: 6px 10px; border-radius: 999px"><span style="width: 8px; height: 8px; border-radius: 50%; background: #0E7C6B"></span>Live</span>
+<div style="flex: 1"></div>
+<label style="display: flex; align-items: center; gap: 8px; background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 10px; padding: 0 12px; height: 40px; color: #5B6675"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><span style="position: absolute; width: 1px; height: 1px; overflow: hidden">Search</span><input type="search" placeholder="Search zones, guards, reports" style="border: 0; outline: 0; background: transparent; font: inherit; font-size: 14px; width: 220px; color: #14202E"></label>
+<button type="button" aria-label="Account" style="width: 40px; height: 40px; border-radius: 50%; border: 0; background: #14202E; color: #FCFCFA; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">OP</button>
+</header>
+<div style="display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 8px">
+<h1 style="margin: 0; font-family: 'Space Grotesk', Arial, sans-serif; font-size: 32px; font-weight: 600; letter-spacing: -0.5px">Overview</h1>
+<p style="margin: 0; font-size: 13px; color: #5B6675">Demo data · updated 4 s ago</p>
+</div>
+<section aria-label="Key numbers" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px">
+<div style="background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #5B6675">People on site</span><span style="font-family: 'Space Grotesk', Arial, sans-serif; font-size: 32px; font-weight: 600">290</span><span style="font-size: 13px; color: #5B6675">of 455 capacity · 64%</span></div>
+<div style="background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #5B6675">Zones on alert</span><span style="font-family: 'Space Grotesk', Arial, sans-serif; font-size: 32px; font-weight: 600; color: #9A3412">2</span><span style="font-size: 13px; color: #5B6675">1 critical · 1 warning</span></div>
+<div style="background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #5B6675">Open reports</span><span style="font-family: 'Space Grotesk', Arial, sans-serif; font-size: 32px; font-weight: 600">2</span><span style="font-size: 13px; color: #5B6675">1 medical · 1 lost item</span></div>
+<div style="background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #5B6675">Guards on duty</span><span style="font-family: 'Space Grotesk', Arial, sans-serif; font-size: 32px; font-weight: 600">14</span><span style="font-size: 13px; color: #5B6675">3 on standby</span></div>
+</section>
+<div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+<section aria-labelledby="zones-h" style="flex: 2 1 520px; min-width: 0; background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 16px; padding: 20px 24px">
+<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px"><h2 id="zones-h" style="margin: 0; font-size: 16px; font-weight: 600">Crowd by zone</h2><a href="#" style="font-size: 13px; font-weight: 500; text-decoration: none">Open map</a></div>
+<div style="display: grid; grid-template-columns: minmax(120px, 1.3fr) minmax(120px, 2fr) 80px 72px; align-items: center; column-gap: 16px; font-size: 14px">
+<span style="padding: 12px 0; border-bottom: 1px solid #ECEFE9; font-weight: 500">Mall Stage</span><div style="padding: 12px 0; border-bottom: 1px solid #ECEFE9"><div style="height: 8px; border-radius: 4px; background: #ECEFE9"><div style="width: 88%; height: 8px; border-radius: 4px; background: #C2410C"></div></div></div><span style="padding: 12px 0; border-bottom: 1px solid #ECEFE9; color: #3B4655">88 / 100</span><span style="padding: 12px 0; border-bottom: 1px solid #ECEFE9; font-weight: 600; color: #9A3412">Critical</span>
+<span style="padding: 12px 0; border-bottom: 1px solid #ECEFE9; font-weight: 500">Main Entrance</span><div style="padding: 12px 0; border-bottom: 1px solid #ECEFE9"><div style="height: 8px; border-radius: 4px; background: #ECEFE9"><div style="width: 82%; height: 8px; border-radius: 4px; background: #D99A2B"></div></div></div><span style="padding: 12px 0; border-bottom: 1px solid #ECEFE9; color: #3B4655">41 / 50</span><span style="padding: 12px 0; border-bottom: 1px solid #ECEFE9; font-weight: 600; color: #8A5A00">Warning</span>
+<span style="padding: 12px 0; border-bottom: 1px solid #ECEFE9; font-weight: 500">Cross Road</span><div style="padding: 12px 0; border-bottom: 1px solid #ECEFE9"><div style="height: 8px; border-radius: 4px; background: #ECEFE9"><div style="width: 65%; height: 8px; border-radius: 4px; background: #0E7C6B"></div></div></div><span style="padding: 12px 0; border-bottom: 1px solid #ECEFE9; color: #3B4655">52 / 80</span><span style="padding: 12px 0; border-bottom: 1px solid #ECEFE9; color: #5B6675">Normal</span>
+<span style="padding: 12px 0; border-bottom: 1px solid #ECEFE9; font-weight: 500">Market</span><div style="padding: 12px 0; border-bottom: 1px solid #ECEFE9"><div style="height: 8px; border-radius: 4px; background: #ECEFE9"><div style="width: 55%; height: 8px; border-radius: 4px; background: #0E7C6B"></div></div></div><span style="padding: 12px 0; border-bottom: 1px solid #ECEFE9; color: #3B4655">33 / 60</span><span style="padding: 12px 0; border-bottom: 1px solid #ECEFE9; color: #5B6675">Normal</span>
+<span style="padding: 12px 0; border-bottom: 1px solid #ECEFE9; font-weight: 500">Red Street Road</span><div style="padding: 12px 0; border-bottom: 1px solid #ECEFE9"><div style="height: 8px; border-radius: 4px; background: #ECEFE9"><div style="width: 57%; height: 8px; border-radius: 4px; background: #0E7C6B"></div></div></div><span style="padding: 12px 0; border-bottom: 1px solid #ECEFE9; color: #3B4655">17 / 30</span><span style="padding: 12px 0; border-bottom: 1px solid #ECEFE9; color: #5B6675">Normal</span>
+<span style="padding: 12px 0; border-bottom: 1px solid #ECEFE9; font-weight: 500">Lobby</span><div style="padding: 12px 0; border-bottom: 1px solid #ECEFE9"><div style="height: 8px; border-radius: 4px; background: #ECEFE9"><div style="width: 49%; height: 8px; border-radius: 4px; background: #0E7C6B"></div></div></div><span style="padding: 12px 0; border-bottom: 1px solid #ECEFE9; color: #3B4655">39 / 80</span><span style="padding: 12px 0; border-bottom: 1px solid #ECEFE9; color: #5B6675">Normal</span>
+<span style="padding: 12px 0; border-bottom: 1px solid #ECEFE9; font-weight: 500">Subway</span><div style="padding: 12px 0; border-bottom: 1px solid #ECEFE9"><div style="height: 8px; border-radius: 4px; background: #ECEFE9"><div style="width: 40%; height: 8px; border-radius: 4px; background: #0E7C6B"></div></div></div><span style="padding: 12px 0; border-bottom: 1px solid #ECEFE9; color: #3B4655">12 / 30</span><span style="padding: 12px 0; border-bottom: 1px solid #ECEFE9; color: #5B6675">Normal</span>
+<span style="padding: 12px 0; font-weight: 500">Exit Gate</span><div style="padding: 12px 0"><div style="height: 8px; border-radius: 4px; background: #ECEFE9"><div style="width: 32%; height: 8px; border-radius: 4px; background: #0E7C6B"></div></div></div><span style="padding: 12px 0; color: #3B4655">8 / 25</span><span style="padding: 12px 0; color: #5B6675">Normal</span>
+</div>
+</section>
+<div style="flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<section aria-labelledby="agent-h" style="background: #14202E; color: #EEF1EC; border-radius: 16px; padding: 20px 24px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; gap: 10px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5CC9B0" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6"/></svg><h2 id="agent-h" style="margin: 0; font-size: 16px; font-weight: 600">Suggested plan</h2></div>
+<p style="margin: 0; font-size: 14px; line-height: 1.5; color: #C4CED6">Mall Stage is close to capacity and one medical report is open.</p>
+<ol style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: 14px; line-height: 1.45">
+<li>Move guard A. Rao from Lobby to Mall Stage</li>
+<li>Send medical staff to report M-104 (minor injury, Market)</li>
+</ol>
+<div style="display: flex; gap: 8px"><button type="button" style="font: inherit; font-size: 14px; font-weight: 600; color: #0F1B2A; background: #5CC9B0; border: 0; border-radius: 10px; padding: 10px 16px; cursor: pointer">Review and approve</button><button type="button" style="font: inherit; font-size: 14px; color: #EEF1EC; background: transparent; border: 1px solid #3A4A5E; border-radius: 10px; padding: 10px 16px; cursor: pointer">Dismiss</button></div>
+</section>
+<section aria-labelledby="alerts-h" style="background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 16px; padding: 20px 24px">
+<h2 id="alerts-h" style="margin: 0 0 8px; font-size: 16px; font-weight: 600">Alerts</h2>
+<ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column">
+<li style="display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid #ECEFE9"><span style="font-size: 12px; font-weight: 600; color: #9A3412; background: #FBE4DA; border-radius: 6px; padding: 3px 8px; height: fit-content">Critical</span><div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; font-weight: 500">Mall Stage at 88%</span><span style="font-size: 13px; color: #5B6675">+6 people in 10 min</span></div></li>
+<li style="display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid #ECEFE9"><span style="font-size: 12px; font-weight: 600; color: #8A5A00; background: #FBF0D9; border-radius: 6px; padding: 3px 8px; height: fit-content">Warning</span><div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; font-weight: 500">Main Entrance at 82%</span><span style="font-size: 13px; color: #5B6675">Steady for 5 min</span></div></li>
+<li style="display: flex; gap: 12px; padding: 12px 0"><span style="font-size: 12px; font-weight: 600; color: #234E86; background: #E3ECF8; border-radius: 6px; padding: 3px 8px; height: fit-content">Predicted</span><div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; font-weight: 500">Cross Road may reach 85%</span><span style="font-size: 13px; color: #5B6675">In about 15 min</span></div></li>
+</ul>
+</section>
+</div>
+</div>
+<section aria-labelledby="cams-h" style="background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 16px; padding: 20px 24px">
+<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px"><h2 id="cams-h" style="margin: 0; font-size: 16px; font-weight: 600">Live cameras</h2><a href="#" style="font-size: 13px; font-weight: 500; text-decoration: none">All 8 cameras</a></div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px">
+<div style="aspect-ratio: 16 / 9; border-radius: 12px; background: #1C2836; position: relative; overflow: hidden"><span style="position: absolute; left: 12px; bottom: 10px; font-size: 13px; font-weight: 500; color: #EEF1EC">Mall Stage</span><span style="position: absolute; right: 10px; top: 10px; font-size: 12px; font-weight: 600; color: #9A3412; background: #FBE4DA; padding: 2px 8px; border-radius: 999px">88 people</span></div>
+<div style="aspect-ratio: 16 / 9; border-radius: 12px; background: #1C2836; position: relative; overflow: hidden"><span style="position: absolute; left: 12px; bottom: 10px; font-size: 13px; font-weight: 500; color: #EEF1EC">Main Entrance</span><span style="position: absolute; right: 10px; top: 10px; font-size: 12px; font-weight: 600; color: #8A5A00; background: #FBF0D9; padding: 2px 8px; border-radius: 999px">41 people</span></div>
+<div style="aspect-ratio: 16 / 9; border-radius: 12px; background: #1C2836; position: relative; overflow: hidden"><span style="position: absolute; left: 12px; bottom: 10px; font-size: 13px; font-weight: 500; color: #EEF1EC">Cross Road</span><span style="position: absolute; right: 10px; top: 10px; font-size: 12px; font-weight: 600; color: #14202E; background: #ECEFE9; padding: 2px 8px; border-radius: 999px">52 people</span></div>
+<div style="aspect-ratio: 16 / 9; border-radius: 12px; background: #1C2836; position: relative; overflow: hidden"><span style="position: absolute; left: 12px; bottom: 10px; font-size: 13px; font-weight: 500; color: #EEF1EC">Market</span><span style="position: absolute; right: 10px; top: 10px; font-size: 12px; font-weight: 600; color: #14202E; background: #ECEFE9; padding: 2px 8px; border-radius: 999px">33 people</span></div>
+</div>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1040}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
