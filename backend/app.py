@@ -1,18 +1,4 @@
-import torch
-
-# ─────────────────────────────────────────────────────────────
-# FIX: PyTorch 2.6+ changed weights_only=True by default,
-# which breaks YOLO model loading. We patch torch.load to
-# default to weights_only=False (safe since we use official
-# yolov8n.pt from Ultralytics).
-# ─────────────────────────────────────────────────────────────
-_orig_torch_load = torch.load
-def _patched_torch_load(f, *args, **kwargs):
-    kwargs.setdefault('weights_only', False)
-    return _orig_torch_load(f, *args, **kwargs)
-torch.load = _patched_torch_load
-
-from fastapi import FastAPI, Request, Body
+from fastapi import FastAPI, Body
 from fastapi.responses import JSONResponse, StreamingResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -30,63 +16,26 @@ import os
 import warnings
 import gc
 
+import sys
+
+# Windows consoles default to cp1252, which cannot print the emoji in our logs
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+
+from crowd_counter import load_counter, render_density_overlay
+
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 # ─────────────────────────────────────────────────────────────
-# YOLO Model Loading — uses local yolov8n.pt file
-# Place yolov8n.pt in the same folder as app.py
-# Download once with: python -c "from ultralytics import YOLO; YOLO('yolov8n.pt')"
+# Crowd counting model (DM-Count from Hugging Face by default,
+# see crowd_counter.py for alternatives and benchmark numbers)
 # ─────────────────────────────────────────────────────────────
-MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "yolov8n.pt")
-model = None
+counter = load_counter()
 
-try:
-    from ultralytics import YOLO
-
-    if not os.path.exists(MODEL_PATH):
-        print(f"⚠️  yolov8n.pt not found at {MODEL_PATH}")
-        print("📥 Downloading yolov8n.pt for the first time...")
-        model = YOLO("yolov8n.pt")  # Downloads and caches
-    else:
-        print(f"📦 Loading local YOLO model from: {MODEL_PATH}")
-        model = YOLO(MODEL_PATH)
-
-    # Warm up the model with a dummy frame
-    dummy = np.zeros((240, 320, 3), dtype=np.uint8)
-    model(dummy, classes=[0], verbose=False, device='cpu')
-    print("✅ YOLO model loaded and warmed up successfully")
-
-except Exception as e:
-    print(f"❌ YOLO failed to load: {e}")
-    print("⚠️  Will use OpenCV fallback detection method")
-    model = None
-
-
-# ─────────────────────────────────────────────────────────────
-# Fallback Detection (OpenCV contour-based)
-# ─────────────────────────────────────────────────────────────
-def detect_persons_fallback(frame):
-    """Lightweight fallback person detection using OpenCV"""
-    try:
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.GaussianBlur(gray, (21, 21), 0)
-        edges = cv2.Canny(blurred, 30, 80)
-        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-        person_count = 0
-        for contour in contours:
-            area = cv2.contourArea(contour)
-            if 800 < area < 8000:
-                x, y, w, h = cv2.boundingRect(contour)
-                aspect_ratio = h / w if w > 0 else 0
-                if 1.2 < aspect_ratio < 4.0:
-                    person_count += 1
-
-        return min(person_count, 30)
-    except Exception as e:
-        print(f"Fallback detection error: {e}")
-        return 5
+# Seconds between two analyses of the same feed
+ANALYSIS_INTERVAL = float(os.environ.get("ANALYSIS_INTERVAL", "5"))
 
 
 # ─────────────────────────────────────────────────────────────
@@ -94,8 +43,9 @@ def detect_persons_fallback(frame):
 # ─────────────────────────────────────────────────────────────
 feeds_data = {}
 analytics_data = defaultdict(lambda: deque(maxlen=50))
-alert_threshold = 20
-congestion_threshold = 15
+# Alert levels as % of each feed's max_capacity (configurable via /api/config/thresholds)
+alert_threshold = int(os.environ.get("ALERT_THRESHOLD", "90"))        # critical
+congestion_threshold = int(os.environ.get("CONGESTION_THRESHOLD", "70"))  # warning
 
 # ─────────────────────────────────────────────────────────────
 # CCTV Feed Configuration
@@ -200,87 +150,91 @@ def check_video_setup():
 # Feed Processor
 # ─────────────────────────────────────────────────────────────
 class FeedProcessor:
+    """Background worker: samples one frame per ANALYSIS_INTERVAL and counts people.
+
+    Video files are sampled at wall-clock position (looping), so analytics follow the
+    footage in real time without decoding every frame; live streams (RTSP/HTTP) are
+    read continuously so the analysed frame is always the latest one.
+    """
+
     def __init__(self, feed_id, feed_config):
         self.feed_id = feed_id
         self.config = feed_config
         self.cap = None
         self.running = False
         self.current_count = 0
-        self.last_logged = time.time()
-        self.log_interval = 10
+        self.latest_frame = None     # last analysed frame (BGR)
+        self.latest_density = None   # its density map
         self.retry_count = 0
         self.max_retries = 3
-        self.frame_skip = 3
+        self.started = time.time()   # wall clock that video-file playback is synced to
+
+    def playback_ms(self, duration_ms):
+        """Position (ms) a looping video file should be at right now."""
+        return ((time.time() - self.started) * 1000) % duration_ms if duration_ms else 0
 
     def start_processing(self):
         self.running = True
-        thread = threading.Thread(target=self._process_feed)
-        thread.daemon = True
+        thread = threading.Thread(target=self._process_feed, daemon=True)
         thread.start()
+
+    def _open(self):
+        cap = cv2.VideoCapture(self.config['url'])
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        return cap
 
     def _process_feed(self):
         try:
-            self.cap = cv2.VideoCapture(self.config['url'])
-            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-            self.cap.set(cv2.CAP_PROP_FPS, 10)
-
+            self.cap = self._open()
             if not self.cap.isOpened():
                 print(f"Failed to open video stream for {self.feed_id}")
                 return
 
-            frame_count = 0
+            fps = self.cap.get(cv2.CAP_PROP_FPS) or 25
+            frames = self.cap.get(cv2.CAP_PROP_FRAME_COUNT)
+            duration_ms = frames / fps * 1000 if frames > 0 else 0  # 0 => live stream
+            next_analysis = 0.0
+
             while self.running:
-                ret, frame = self.cap.read()
+                if duration_ms:
+                    # File: wait for the next slot, then seek to the matching position
+                    time.sleep(max(0.0, next_analysis - time.time()))
+                    self.cap.set(cv2.CAP_PROP_POS_MSEC, self.playback_ms(duration_ms))
+                    ret, frame = self.cap.read()
+                    if not ret:  # seek past the last keyframe; restart from the top
+                        self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                        ret, frame = self.cap.read()
+                else:
+                    # Live stream: keep draining frames so we always analyse the newest
+                    ret = self.cap.grab()
+                    if ret and time.time() < next_analysis:
+                        continue
+                    ret, frame = self.cap.retrieve() if ret else (False, None)
 
                 if not ret:
-                    print(f"Video ended for {self.feed_id}, restarting...")
-                    if self.cap:
-                        self.cap.release()
+                    print(f"No frame from {self.feed_id}, reconnecting...")
+                    self.cap.release()
                     time.sleep(2)
-                    self.cap = cv2.VideoCapture(self.config['url'])
-                    self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-
+                    self.cap = self._open()
                     if not self.cap.isOpened():
                         self.retry_count += 1
                         if self.retry_count >= self.max_retries:
                             print(f"Max retries reached for {self.feed_id}")
                             break
                         time.sleep(5)
-                        continue
-                    else:
-                        self.retry_count = 0
-                        frame_count = 0
-                        continue
-
-                frame_count += 1
-                if frame_count % self.frame_skip != 0:
                     continue
 
                 self.retry_count = 0
-                frame = cv2.resize(frame, (320, 240))
-
+                next_analysis = time.time() + ANALYSIS_INTERVAL
                 try:
-                    if model is not None:
-                        results = model(frame, classes=[0], verbose=False, device='cpu')
-                        detections = results[0].boxes
-                        person_count = len(detections) if detections is not None else 0
-
-                        if hasattr(torch, 'cuda') and torch.cuda.is_available():
-                            torch.cuda.empty_cache()
-                    else:
-                        person_count = detect_persons_fallback(frame)
+                    person_count, density = counter.count(frame)
                 except Exception as e:
-                    print(f"Detection error for {self.feed_id}: {e}")
-                    person_count = detect_persons_fallback(frame)
+                    print(f"Counting error for {self.feed_id}: {e}")
+                    continue
 
                 self.current_count = person_count
-
-                if time.time() - self.last_logged >= self.log_interval:
-                    self._log_data(person_count, frame)
-                    self.last_logged = time.time()
-                    gc.collect()
-
-                time.sleep(0.5)
+                self.latest_frame, self.latest_density = frame, density
+                self._log_data(person_count, frame)
 
         except Exception as e:
             print(f"Error processing {self.feed_id}: {e}")
@@ -294,9 +248,9 @@ class FeedProcessor:
         density_percentage = (count / self.config['max_capacity']) * 100
 
         alert_level = "normal"
-        if count >= alert_threshold:
+        if density_percentage >= alert_threshold:
             alert_level = "critical"
-        elif count >= congestion_threshold:
+        elif density_percentage >= congestion_threshold:
             alert_level = "warning"
 
         data_point = {
@@ -403,7 +357,7 @@ def create_error_frame(message):
 async def health_check():
     return {
         "status": "healthy",
-        "model": "yolo" if model is not None else "fallback",
+        "model": counter.name,
         "timestamp": datetime.now().isoformat(),
         "active_feeds": len([f for f in feed_processors.values() if f.running])
     }
@@ -466,7 +420,8 @@ async def check_feed_health(feed_id: str):
 
 
 @app.get("/api/video/stream/{feed_id}")
-async def get_video_stream(feed_id: str):
+async def get_video_stream(feed_id: str, overlay: bool = False):
+    """MJPEG stream. `?overlay=true` blends the latest crowd-density heatmap and count."""
     if feed_id not in CCTV_FEEDS:
         return JSONResponse(status_code=404, content={"error": "Feed not found"})
 
@@ -480,7 +435,13 @@ async def get_video_stream(feed_id: str):
                 try:
                     cap = cv2.VideoCapture(CCTV_FEEDS[feed_id]['url'])
                     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-                    cap.set(cv2.CAP_PROP_FPS, 15)
+                    src_fps = cap.get(cv2.CAP_PROP_FPS) or 15
+                    frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+                    duration_ms = frames / src_fps * 1000 if frames > 0 else 0
+                    proc = feed_processors[feed_id]
+                    if duration_ms:  # video file: show what the analyser is looking at
+                        cap.set(cv2.CAP_PROP_POS_MSEC, proc.playback_ms(duration_ms))
+                    frame_period = 1.0 / min(src_fps, 15)
 
                     if not cap.isOpened():
                         reconnect_attempts += 1
@@ -498,7 +459,7 @@ async def get_video_stream(feed_id: str):
                             consecutive_failures += 1
                             if consecutive_failures >= max_consecutive_failures:
                                 break
-                            cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                            cap.set(cv2.CAP_PROP_POS_MSEC, proc.playback_ms(duration_ms))
                             time.sleep(0.1)
                             continue
 
@@ -506,6 +467,8 @@ async def get_video_stream(feed_id: str):
 
                         try:
                             frame = cv2.resize(frame, (640, 480))
+                            if overlay:
+                                frame = render_density_overlay(frame, proc.latest_density, proc.current_count)
                             encode_param = [
                                 int(cv2.IMWRITE_JPEG_QUALITY), 75,
                                 int(cv2.IMWRITE_JPEG_OPTIMIZE), 1
@@ -521,7 +484,10 @@ async def get_video_stream(feed_id: str):
                                    b'Content-Length: ' + str(len(frame_bytes)).encode() + b'\r\n\r\n'
                                    + frame_bytes + b'\r\n')
 
-                            time.sleep(0.066)
+                            # Keep real-time pace (skip frames if a high-fps source runs faster than 15 fps)
+                            for _ in range(max(0, round(src_fps * frame_period) - 1)):
+                                cap.grab()
+                            time.sleep(frame_period)
 
                         except Exception as frame_error:
                             consecutive_failures += 1
@@ -567,11 +533,24 @@ async def get_video_stream(feed_id: str):
 
 
 @app.get("/api/video/snapshot/{feed_id}")
-async def get_video_snapshot(feed_id: str):
+async def get_video_snapshot(feed_id: str, overlay: bool = False):
+    """JPEG frame. `?overlay=true` returns the last analysed frame with its density heatmap."""
     if feed_id not in CCTV_FEEDS:
         return JSONResponse(status_code=404, content={"error": "Feed not found"})
+    proc = feed_processors[feed_id]
+    if overlay and proc.latest_frame is not None:
+        h, w = proc.latest_frame.shape[:2]
+        frame = cv2.resize(proc.latest_frame, (640, round(640 * h / w)))
+        frame = render_density_overlay(frame, proc.latest_density, proc.current_count)
+        ok, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+        return Response(content=buffer.tobytes(), media_type="image/jpeg",
+                        headers={"Cache-Control": "no-store"})
     try:
         cap = cv2.VideoCapture(CCTV_FEEDS[feed_id]['url'])
+        fps = cap.get(cv2.CAP_PROP_FPS) or 25
+        frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+        if frames > 0:  # video file: show the moment the analyser is at
+            cap.set(cv2.CAP_PROP_POS_MSEC, proc.playback_ms(frames / fps * 1000))
         ret, frame = cap.read()
         cap.release()
 
@@ -702,7 +681,8 @@ async def get_crowd_predictions():
             current = recent_counts[-1]
             pred_15 = max(0, int(current + avg_trend * 3))
             pred_30 = max(0, int(current + avg_trend * 6))
-            risk = "high" if pred_15 >= alert_threshold else "medium" if pred_15 >= congestion_threshold else "low"
+            pred_pct = pred_15 / CCTV_FEEDS[feed_id]["max_capacity"] * 100
+            risk = "high" if pred_pct >= alert_threshold else "medium" if pred_pct >= congestion_threshold else "low"
 
             predictions[feed_id] = {
                 "feed_name": CCTV_FEEDS[feed_id]["name"],
@@ -765,7 +745,8 @@ async def stop_monitoring():
 async def get_thresholds():
     return {
         "alert_threshold": alert_threshold,
-        "congestion_threshold": congestion_threshold
+        "congestion_threshold": congestion_threshold,
+        "unit": "percent_of_max_capacity"
     }
 
 

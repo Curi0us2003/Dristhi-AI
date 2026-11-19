@@ -7,12 +7,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# CPU-only PyTorch keeps the image ~2 GB smaller than the default CUDA build
-RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# app.py, feeds.json, yolov8n.pt and any local videos/ (see .dockerignore)
+# Bake the DM-Count model into the image so cold starts don't download it
+ENV HF_HOME=/app/.hf-cache
+RUN python -c "from huggingface_hub import hf_hub_download as d; d('mlboydaisuke/DM-Count-Crowd-OpenVINO','dmcount.onnx')"
+
+# app.py, crowd_counter.py, feeds.json and any local videos/ (see .dockerignore)
 COPY . .
 
 ENV ENV=production \

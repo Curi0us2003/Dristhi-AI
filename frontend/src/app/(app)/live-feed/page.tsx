@@ -21,16 +21,18 @@ import {
   AlertTriangle,
   Wifi,
   WifiOff,
+  Flame,
 } from "lucide-react";
 import { useEffect, useState, useRef, useCallback } from "react";
 
 // Backend configuration
-import { BACKEND_URL } from '@/lib/backend-url';
+import { BACKEND_URL, streamOrigin } from '@/lib/backend-url';
 import { collection, getDocs, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 const BACKEND_BASE = BACKEND_URL;
 const FEED_IDS = ["feed_1", "feed_2", "feed_3", "feed_4", "feed_5", "feed_6", "feed_7", "feed_8"];
+const DENSITY_REFRESH_MS = 2500;
 
 interface FeedData {
   name: string;
@@ -50,10 +52,12 @@ interface VideoStreamProps {
   feedId: string;
   feedData?: FeedData;
   onError?: (error: string) => void;
+  /** Blend the backend's crowd-density heatmap and people count into the stream */
+  showDensity?: boolean;
 }
 
 // Enhanced Video Stream Component with Auto-Reconnection
-const RobustVideoStream: React.FC<VideoStreamProps> = ({ feedId, feedData, onError }) => {
+const RobustVideoStream: React.FC<VideoStreamProps> = ({ feedId, feedData, onError, showDensity = false }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
@@ -72,8 +76,20 @@ const RobustVideoStream: React.FC<VideoStreamProps> = ({ feedId, feedData, onErr
   // Generate unique stream URL to prevent caching
   const generateStreamUrl = useCallback(() => {
     const timestamp = Date.now();
-    return `${BACKEND_URL}/api/video/stream/${feedId}?t=${timestamp}`;
-  }, [feedId]);
+    // Heatmap mode shows the exact frame the AI analysed (refreshed below), so the
+    // overlay always lines up with the people in the picture. It also avoids holding
+    // 8 MJPEG connections open (browsers allow only 6 per host over HTTP/1.1).
+    return showDensity
+      ? `${BACKEND_URL}/api/video/snapshot/${feedId}?overlay=true&t=${timestamp}`
+      : `${streamOrigin(FEED_IDS.indexOf(feedId))}/api/video/stream/${feedId}?t=${timestamp}`;
+  }, [feedId, showDensity]);
+
+  // In heatmap mode, poll for the latest analysed frame
+  useEffect(() => {
+    if (!showDensity) return;
+    const timer = setInterval(() => setStreamUrl(generateStreamUrl()), DENSITY_REFRESH_MS);
+    return () => clearInterval(timer);
+  }, [showDensity, generateStreamUrl]);
 
   // Handle successful image load
   const handleImageLoad = useCallback(() => {
@@ -263,6 +279,7 @@ export default function LiveFeedPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [showDensity, setShowDensity] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'online' | 'offline'>('offline');
 
   // Store feeds data in Firestore for caching
@@ -433,6 +450,15 @@ export default function LiveFeedPage() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant={showDensity ? "default" : "outline"}
+            onClick={() => setShowDensity((v) => !v)}
+            aria-pressed={showDensity}
+            title="Overlay the AI crowd-density heatmap on every camera"
+          >
+            <Flame className="mr-2 h-4 w-4" />
+            Density Heatmap {showDensity ? "On" : "Off"}
+          </Button>
           <Button variant="outline" onClick={handleRefreshAll} disabled={isLoading}>
             <RefreshCw className={cn("mr-2 h-4 w-4", isLoading && "animate-spin")} />
             Refresh All
@@ -479,6 +505,7 @@ export default function LiveFeedPage() {
                     feedId={feedId} 
                     feedData={feedData}
                     onError={handleVideoError}
+                    showDensity={showDensity}
                   />
                 </div>
                 
@@ -487,7 +514,11 @@ export default function LiveFeedPage() {
                     {feedData?.area?.replace('_', ' ').toUpperCase() || 'Unknown Location'}
                   </p>
                   {isOnline && (
-                    <div className="flex items-center justify-end text-xs text-muted-foreground">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Users className="h-3 w-3" />
+                        {feedData.current_count} / {feedData.max_capacity} people
+                      </span>
                       <span>
                         Density: {feedData.density_percentage}%
                       </span>

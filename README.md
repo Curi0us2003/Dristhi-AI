@@ -1,7 +1,8 @@
 # Dristhi AI: Event Guardian 🛡️
 
 **Dristhi AI** is an AI-powered situational-awareness platform for crowd safety at large events.
-CCTV feeds are analysed in real time with **YOLOv8** person detection, and a **Next.js** command
+CCTV feeds are analysed in real time by a **DM-Count crowd-density model** (from Hugging Face),
+which counts people accurately even in packed crowds, and a **Next.js** command
 center lets security teams watch crowd density, receive alerts, manage attendee grievances, and
 let a **Gemini**-powered agent propose guard, ambulance and medical-staff deployments.
 
@@ -14,7 +15,9 @@ let a **Gemini**-powered agent propose guard, ambulance and medical-staff deploy
 - [Features](#features)
 - [Architecture](#architecture)
 - [Project structure](#project-structure)
+- [Crowd counting model](#crowd-counting-model)
 - [Quick start (local)](#quick-start-local)
+- [Testing in the UI](#testing-in-the-ui)
 - [Configuration](#configuration)
 - [Backend API](#backend-api)
 - [Deployment](#deployment)
@@ -29,7 +32,7 @@ let a **Gemini**-powered agent propose guard, ambulance and medical-staff deploy
 | Page | What it does |
 |------|--------------|
 | **Dashboard** (`/dashboard`) | Live counters (guards, alerts, grievances), crowd analytics charts, guard roster management, live camera snapshots, **AI event summary** and the **Autonomous Command Agent** |
-| **Live Feed** (`/live-feed`) | MJPEG camera streams with automatic reconnection and status indicators |
+| **Live Feed** (`/live-feed`) | Camera streams with live people count, density %, status, and a **Density Heatmap** toggle that marks every detected head |
 | **Alerts** (`/alerts`) | Critical / warning / predicted congestion alerts with recommendations |
 | **Map View** (`/map-view`) | Google Maps view with live crowd density per camera location |
 | **Grievances** (`/grievances`) | Resolve medical-emergency and missing-person reports submitted by attendees |
@@ -55,7 +58,7 @@ operator can approve. Works offline with a rule-based fallback plan if no AI key
 ```
  ┌────────────────────────────┐        ┌───────────────────────────────┐
  │  Next.js static frontend   │  /api  │  FastAPI backend (backend/)   │
- │  (Firebase Hosting)        ├───────►│  • YOLOv8n person detection   │
+ │  (Firebase Hosting)        ├───────►│  • DM-Count crowd density     │
  │  • Firebase Auth/Firestore │ proxy  │  • 1 thread per CCTV feed     │
  │  • Gemini REST (browser)   │  (CF)  │  • analytics, alerts, MJPEG   │
  └─────────────┬──────────────┘        └───────────────┬───────────────┘
@@ -76,11 +79,12 @@ operator can approve. Works offline with a rule-based fallback plan if no AI key
 ```
 .
 ├── backend/
-│   ├── app.py              # FastAPI app: detection threads + REST API
+│   ├── app.py              # FastAPI app: per-feed analysis threads + REST API
+│   ├── crowd_counter.py    # DM-Count (Hugging Face, ONNX) + YOLO/OpenCV fallbacks, heatmap overlay
 │   ├── feeds.json          # CCTV feed definitions (edit this to add cameras)
-│   ├── yolov8n.pt          # YOLOv8 nano weights (auto-downloaded if missing)
+│   ├── tools/make_demo_videos.py  # builds demo CCTV clips with ground-truth counts
 │   ├── requirements.txt
-│   ├── Dockerfile          # CPU-only image, listens on $PORT (8080)
+│   ├── Dockerfile          # CPU-only image (model baked in), listens on $PORT (8080)
 │   └── deploy.sh / deploy.ps1   # One-command Cloud Run deployment
 └── frontend/
     ├── src/
@@ -100,6 +104,38 @@ operator can approve. Works offline with a rule-based fallback plan if no AI key
 
 ---
 
+## Crowd counting model
+
+The backend uses **[DM-Count](https://github.com/cvlab-stonybrook/DM-Count)** (NeurIPS 2020,
+UCF-QNRF weights, MIT licence), downloaded from Hugging Face
+([`mlboydaisuke/DM-Count-Crowd-OpenVINO`](https://huggingface.co/mlboydaisuke/DM-Count-Crowd-OpenVINO),
+`dmcount.onnx`) on first start and run on CPU with ONNX Runtime. Instead of drawing boxes around
+people (which fails once people overlap), it predicts a **density map** whose sum is the number of
+people, so it also tells you *where* the crowd is. That map drives the heatmap overlay.
+
+Frames are split into overlapping 512×512 tiles (long side scaled to 1024 px) so small, distant
+heads are still counted.
+
+**Benchmark** on ShanghaiTech test images with ground-truth head counts (40 street scenes from
+part B, 40 dense crowds from part A), CPU (Intel i5-13450HX):
+
+| Model | Street scenes MAE | Street scenes error | Dense crowds MAE | Dense crowds error | Time / frame |
+|-------|------:|------:|------:|------:|------:|
+| YOLOv8n @ 320×240 *(previous setup)* | 84.5 | 66.6 % | 336.6 | 95.9 % | 40 ms |
+| YOLOv8n @ 1280 px | 65.3 | 47.9 % | 316.2 | 85.0 % | 110 ms |
+| P2PNet (ShanghaiTech A, ONNX) | 16.2 | 13.6 % | 109.7 | 34.0 % | 1.6 s |
+| **DM-Count, tiled (current)** | **11.0** | **7.9 %** | **54.8** | **17.7 %** | ~1.2 s¹ |
+
+¹ With all CPU cores. Set `DENSITY_MAX_SIDE=768` to roughly halve it (10.8 % street-scene error).
+It returns 0 on empty frames and counts small groups correctly (3.9 for 4 people, 1.9 for 2).
+CLIP-EBC (state of the art, ViT-based) was also considered but is too heavy to run 8 feeds on a CPU server.
+
+Each feed is analysed every `ANALYSIS_INTERVAL` seconds (default 5). The model processes one frame
+at a time, so with 8 feeds on a laptop CPU each camera refreshes roughly every 8–10 s.
+To use YOLO instead: `pip install ultralytics` and set `CROWD_MODEL=yolo`.
+
+---
+
 ## Quick start (local)
 
 ### Prerequisites
@@ -115,13 +151,17 @@ cd backend
 python -m venv .venv
 # Windows: .venv\Scripts\activate    macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
+python tools/make_demo_videos.py  # one-time: demo CCTV clips → backend/videos/ (~530 MB download)
 python app.py                     # → http://localhost:5000  (Swagger UI: /docs)
 ```
 
-> **Video sources:** edit `backend/feeds.json` so each feed's `url` points to a video you can
-> access – a local file (e.g. `videos/gate.mp4`, relative to `backend/`), an HTTP(S) URL or an
-> RTSP camera. The sample Cloudinary URLs from the original project currently return **HTTP 401**,
-> so replace them with your own footage.
+The first start downloads the DM-Count model (~86 MB) from Hugging Face; later starts use the cache.
+No Hugging Face account or token is needed, because the model is public.
+
+> **Video sources:** `feeds.json` points each camera at `videos/<name>.mp4`. The demo script fills
+> these with real crowd scenes from the ShanghaiTech dataset (research use only), ordered quiet → busy,
+> and writes their true head counts to `videos/ground_truth.json`. For real cameras, set a feed's
+> `url` to an RTSP/HTTP stream or another video file and adjust its `max_capacity`.
 
 ### 2. Frontend
 
@@ -136,6 +176,28 @@ npm run dev                       # → http://localhost:9002
 
 Log in as **Operator** with the email, password, username and employee ID you just created, or
 **Sign up** as an attendee.
+
+### Testing in the UI
+
+1. Start the backend (`python app.py` in `backend/`) and wait for `✅ Crowd model ready: DM-Count`.
+   `http://localhost:5000/api/health` should show `"model": "dm-count"` and `"active_feeds": 8`.
+2. Start the frontend (`npm run dev` in `frontend/`) and open **http://localhost:9002**.
+3. Log in on the **Operator** tab with the account from `npm run create-admin`.
+4. **Live Feed**: every camera card shows `people / capacity` and density %. Press
+   **Density Heatmap** to see the analysed frame with each detected head marked and the count
+   stamped on it, and compare with `backend/videos/ground_truth.json`. The clips change scene every
+   10 s, so counts and the Normal → Warning → Critical badges change as the crowd grows.
+5. **Dashboard**: total people, overall density and the analytics chart fill up over a few minutes.
+6. **Alerts**: cameras above 70 % of capacity show as *warning*, above 90 % as *critical*.
+   Predictions appear after about 5 analyses per camera.
+7. **Map View** (needs a Google Maps key): crowd density per camera location.
+
+Quick API check without the UI:
+
+```bash
+curl http://localhost:5000/api/feeds                                              # live counts
+curl -o heat.jpg "http://localhost:5000/api/video/snapshot/feed_6?overlay=true"   # heatmap image
+```
 
 ### Useful scripts (frontend)
 
@@ -171,8 +233,14 @@ Log in as **Operator** with the email, password, username and employee ID you ju
 | `PORT` | `5000` (`8080` in Docker) | HTTP port |
 | `ENV` | – | `production` disables auto-reload |
 | `FEEDS_FILE` | `backend/feeds.json` | Alternative feed definition file |
+| `CROWD_MODEL` | `dmcount` | `dmcount` or `yolo` (YOLO needs `pip install ultralytics`) |
+| `HF_MODEL_REPO` / `HF_MODEL_FILE` | `mlboydaisuke/DM-Count-Crowd-OpenVINO` / `dmcount.onnx` | Hugging Face model to load |
+| `DENSITY_MAX_SIDE` | `1024` | Frame size before tiling; `768` is about 2× faster and slightly less accurate |
+| `ANALYSIS_INTERVAL` | `5` | Seconds between analyses of the same camera |
+| `INFERENCE_THREADS` | all cores | ONNX Runtime threads |
+| `ALERT_THRESHOLD` / `CONGESTION_THRESHOLD` | `90` / `70` | Critical / warning level, in % of a camera's `max_capacity` |
 
-Alert thresholds can be changed at runtime via `POST /api/config/thresholds`.
+Thresholds can also be changed at runtime via `POST /api/config/thresholds`.
 
 ### Cloud Function – `frontend/functions/.env`
 
@@ -188,14 +256,14 @@ Alert thresholds can be changed at runtime via `POST /api/config/thresholds`.
 |--------|----------|-------------|
 | GET | `/api/health` | API, model and feed status |
 | GET | `/api/feeds` · `/api/feeds/{id}` | Current counts / per-feed details and history |
-| GET | `/api/video/stream/{id}` | Live MJPEG video stream |
-| GET | `/api/video/snapshot/{id}` | Single JPEG frame |
+| GET | `/api/video/stream/{id}` | Live MJPEG video stream (`?overlay=true` adds heatmap + count) |
+| GET | `/api/video/snapshot/{id}` | Current JPEG frame (`?overlay=true`: last analysed frame with density heatmap and count) |
 | GET | `/api/video/health/{id}` · `/api/video/info` | Source accessibility and metadata |
 | GET | `/api/analytics/summary` | Aggregate density and trend analytics |
 | GET | `/api/alerts` · `/api/predictions` | Current alerts and short-term congestion predictions |
 | GET | `/api/heatmap` | Geo-tagged density for the map |
 | GET | `/api/export/csv` | Download analytics history as CSV |
-| GET / POST | `/api/config/thresholds` | Read / update alert and congestion thresholds |
+| GET / POST | `/api/config/thresholds` | Read / update alert and congestion thresholds (% of capacity) |
 | POST | `/api/controls/start` · `/api/controls/stop` | Start / stop feed processing |
 | GET | `/api/stream/updates` | Server-Sent Events with live feed data |
 
@@ -262,6 +330,6 @@ require the Blaze (pay-as-you-go) plan.
 **Frontend:** Next.js 15 (App Router, static export) · TypeScript · Tailwind CSS · shadcn/ui (Radix) ·
 Recharts · Google Maps · Firebase Auth & Firestore · Gemini API
 
-**Backend:** FastAPI · Uvicorn · Ultralytics YOLOv8 · OpenCV · PyTorch (CPU) · pandas / NumPy
+**Backend:** FastAPI · Uvicorn · DM-Count via ONNX Runtime · Hugging Face Hub · OpenCV · pandas / NumPy
 
 **Infra:** Firebase Hosting + Cloud Functions · Google Cloud Run / Compute Engine · Docker
