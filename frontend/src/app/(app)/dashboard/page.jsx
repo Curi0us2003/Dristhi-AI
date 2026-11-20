@@ -60,7 +60,6 @@ import { summarizeDashboard } from '@/ai/flows/summarize-dashboard.client';
 import { BACKEND_URL } from '@/lib/backend-url';
 import { ATTENDEE_URL } from '@/lib/app-urls';
 import Link from 'next/link';
-import AutonomousAgent from '@/components/autonomous-agent';
 
 // Import Recharts for premium crowd monitoring charts
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -190,8 +189,8 @@ export default function DashboardPage() {
   const [openGrievances, setOpenGrievances] = useState([]);
   const [alerts, setAlerts] = useState([]);
 
-  // Guards, ambulances and medical staff all come from the selected event's staff roster.
-  const { guards, ambulances, medicalStaff } = useMemo(() => rosterViews(staff, zones), [staff, zones]);
+  // Guards come from the selected event's staff roster.
+  const { guards } = useMemo(() => rosterViews(staff, zones), [staff, zones]);
   const guardRoster = useMemo(() => staff.filter((s) => GUARD_KINDS.includes(s.kind)), [staff]);
   const zoneName = (id) => zones.find((z) => z.id === id)?.name ?? 'Unassigned';
   const [summary, setSummary] = useState('');
@@ -557,18 +556,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Drishti AI Autonomous Agent Panel */}
-      <AutonomousAgent
-        guards={guards}
-        alerts={alerts}
-        grievances={openGrievances}
-        ambulances={ambulances}
-        medicalStaff={medicalStaff}
-        eventId={event?.id ?? null}
-        staff={staff}
-        zones={zones}
-      />
 
       {/* Real-time Crowd Analytics Summary and Trends */}
       <div className="grid gap-6 md:grid-cols-3">

@@ -306,7 +306,7 @@ export const GUARD_KINDS = ['guard', 'supervisor'];
 export const MEDICAL_KINDS = ['medic', 'doctor'];
 
 /**
- * The Dashboard summary and the autonomous agent were written for the old `guards`,
+ * The Dashboard summary was written for the old `guards`,
  * `ambulances` and `medical_staff` collections. This builds the same shapes from the event's
  * staff roster so those screens read one source of truth. `id` is always the staff doc id.
  *
