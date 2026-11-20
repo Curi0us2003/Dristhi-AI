@@ -73,8 +73,8 @@ export default function EventForm() {
     <Card>
       <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
         <div className="space-y-1.5">
-          <CardTitle>{creating ? 'New event' : 'Event details'}</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-base">{creating ? 'New event' : 'Event details'}</CardTitle>
+          <CardDescription className="text-[13px] leading-relaxed">
             {creating
               ? 'Create the event you have been hired to manage.'
               : 'Thresholds decide when a zone shows Warning or Critical, and how many guards it needs.'}
@@ -127,7 +127,7 @@ export default function EventForm() {
             <Label htmlFor="ev-status">Status</Label>
             <Select value={form.status} onValueChange={(v) => set('status', v)}>
               <SelectTrigger id="ev-status">
-                <SelectValue />
+                <SelectValue>{{ draft: 'Draft', live: 'Live', ended: 'Ended' }[form.status] ?? 'Draft'}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="draft">Draft</SelectItem>

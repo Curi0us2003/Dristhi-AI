@@ -154,8 +154,8 @@ export default function StaffRoster({ event }) {
       <div className="space-y-4">
         <Card>
           <CardHeader>
-            <CardTitle>Add staff</CardTitle>
-            <CardDescription>Guards, medics, doctors, ambulances and volunteers on duty.</CardDescription>
+            <CardTitle className="text-base">Add staff</CardTitle>
+            <CardDescription className="text-[13px] leading-relaxed">Guards, medics, doctors, ambulances and volunteers on duty.</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={onAdd} className="space-y-4">
@@ -216,8 +216,8 @@ export default function StaffRoster({ event }) {
 
         <Card>
           <CardHeader>
-            <CardTitle>Import CSV</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-base">Import CSV</CardTitle>
+            <CardDescription className="text-[13px] leading-relaxed">
               One person per line: <code>name, phone, role, zone</code>. Role is one of{' '}
               {STAFF_KINDS.join(', ')}. Zone must match a zone name, or be empty.
             </CardDescription>
@@ -269,8 +269,8 @@ export default function StaffRoster({ event }) {
       <Card>
         <CardHeader className="flex flex-col gap-3 space-y-0 md:flex-row md:items-center md:justify-between">
           <div className="space-y-1.5">
-            <CardTitle>Roster ({staff.length})</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-base">Roster ({staff.length})</CardTitle>
+            <CardDescription className="text-[13px] leading-relaxed">
               {STAFF_KINDS.filter((k) => counts[k])
                 .map((k) => `${counts[k]} ${STAFF_KIND_LABEL[k].toLowerCase()}`)
                 .join(' · ') || 'No staff yet.'}

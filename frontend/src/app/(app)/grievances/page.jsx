@@ -10,7 +10,7 @@ import {
   addDoc,
   serverTimestamp,
 } from 'firebase/firestore';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { PageHeader, Panel } from '@/components/admin/ui';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -79,10 +79,11 @@ const grievanceIcons = {
   'General Grievance': MessageSquareWarning,
 };
 
-const grievanceColors = {
-  'Medical Attention': 'border-red-500 bg-red-900/10',
-  'Missing Person': 'border-yellow-500 bg-yellow-900/10',
-  'General Grievance': 'border-blue-500 bg-blue-900/10',
+/** Tinted icon square per report type (design tokens). */
+const grievanceIconTone = {
+  'Medical Attention': 'bg-ds-critical-tint text-ds-critical',
+  'Missing Person': 'bg-ds-warning-tint text-ds-warning',
+  'General Grievance': 'bg-ds-predicted-tint text-ds-predicted',
 };
 
 /** Minutes allowed to assign someone, and to resolve, per report type. */
@@ -243,12 +244,12 @@ export default function GrievancesPage() {
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        <h2 className="text-2xl font-bold tracking-tight">Grievances</h2>
-        <div className="flex items-center justify-center h-64">
-          <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+      <>
+        <PageHeader title="Reports" />
+        <div className="flex h-64 items-center justify-center">
+          <RefreshCw className="h-8 w-8 animate-spin text-ds-muted" />
         </div>
-      </div>
+      </>
     );
   }
 
@@ -260,151 +261,144 @@ export default function GrievancesPage() {
   }).length;
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-        <h2 className="text-2xl font-bold tracking-tight">Grievances</h2>
+    <>
+      <PageHeader title="Reports" meta="Medical, missing person and other reports from attendees, newest first.">
         <div className="flex flex-wrap gap-2">
           <StatusBadge tone="muted">{grievances.length} open</StatusBadge>
           <StatusBadge tone={unassigned ? 'warning' : 'normal'}>{unassigned} unassigned</StatusBadge>
           <StatusBadge tone={overdue ? 'critical' : 'normal'}>{overdue} overdue</StatusBadge>
         </div>
-      </div>
+      </PageHeader>
       {!event && (
-        <p className="text-sm text-muted-foreground">
-          Create an event and its staff roster in Setup to send staff to reports.
-        </p>
+        <p className="text-sm text-ds-muted">Create an event and its staff roster in Setup to send staff to reports.</p>
       )}
       {grievances.length === 0 ? (
-        <Card>
-          <CardContent className="p-8 text-center">
-            <div className="flex flex-col items-center gap-2">
-              <MessageSquareWarning className="h-12 w-12 text-muted-foreground" />
-              <h3 className="text-lg font-medium">No Open Grievances</h3>
-              <p className="text-sm text-muted-foreground">
-                All user-submitted grievances have been resolved.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        <Panel className="flex flex-col items-center gap-2 py-10 text-center">
+          <MessageSquareWarning className="mx-auto h-10 w-10 text-ds-muted" strokeWidth={1.75} aria-hidden />
+          <h2 className="text-base font-semibold">No open reports</h2>
+          <p className="text-sm text-ds-muted">Every report from attendees has been resolved.</p>
+        </Panel>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
           {grievances.map((grievance) => {
             const Icon = grievanceIcons[grievance.type] ?? MessageSquareWarning;
             const candidates = candidatesFor(grievance, staff);
             return (
-              <Card key={grievance.id} className={grievanceColors[grievance.type]}>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Icon className="h-5 w-5" />
-                      {grievance.type}
+              <article
+                key={grievance.id}
+                className="flex min-w-0 flex-col gap-3 rounded-2xl border border-ds-border bg-ds-surface p-5"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] ${grievanceIconTone[grievance.type] ?? 'bg-ds-divider text-ds-ink-2'}`}
+                    >
+                      <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
+                    </span>
+                    <div className="min-w-0">
+                      <h2 className="text-base font-semibold leading-tight">{grievance.type}</h2>
+                      <p className="text-[13px] text-ds-muted">
+                        {formatTimestamp(grievance.submittedAt)} · {grievance.submittedBy || 'Anonymous'}
+                      </p>
                     </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Actions for ${grievance.type} report`}
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuSub>
-                          <DropdownMenuSubTrigger disabled={candidates.length === 0}>
-                            <UserCheck className="mr-2 h-4 w-4" />
-                            {grievance.assignedStaffId ? 'Send someone else' : 'Send staff'}
-                          </DropdownMenuSubTrigger>
-                          <DropdownMenuPortal>
-                            <DropdownMenuSubContent className="max-h-80 overflow-y-auto">
-                              <DropdownMenuLabel>Available staff</DropdownMenuLabel>
-                              <DropdownMenuSeparator />
-                              {candidates.map((member) => (
-                                <DropdownMenuItem
-                                  key={member.id}
-                                  onClick={() => handleAssign(grievance, member)}
-                                >
-                                  {member.name}
-                                  <span className="ml-2 text-xs text-muted-foreground">
-                                    {STAFF_KIND_LABEL[member.kind]}
-                                  </span>
-                                </DropdownMenuItem>
-                              ))}
-                            </DropdownMenuSubContent>
-                          </DropdownMenuPortal>
-                        </DropdownMenuSub>
-                        <DropdownMenuItem onClick={() => handleResolve(grievance)}>
-                          <CheckCircle2 className="mr-2 h-4 w-4" />
-                          Mark resolved
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </CardTitle>
-                  <CardDescription>
-                    Submitted {formatTimestamp(grievance.submittedAt)} by{' '}
-                    {grievance.submittedBy || 'Anonymous'}
-                  </CardDescription>
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    <SlaBadge grievance={grievance} now={now} />
-                    {grievance.urgency && (
-                      <StatusBadge
-                        tone={
-                          grievance.urgency === 'High'
-                            ? 'critical'
-                            : grievance.urgency === 'Medium'
-                              ? 'warning'
-                              : 'muted'
-                        }
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="shrink-0"
+                        aria-label={`Actions for ${grievance.type} report`}
                       >
-                        {grievance.urgency} urgency
-                      </StatusBadge>
-                    )}
-                    {grievance.assignedStaffName && (
-                      <StatusBadge tone="predicted">
-                        {grievance.assignedStaffName}
-                        {grievance.assignedAt ? ` · ${minutesSince(grievance.assignedAt, now)}m ago` : ''}
-                      </StatusBadge>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex gap-4">
-                    {grievance.photoDataUri && (
-                      <div className="relative h-16 w-16 flex-shrink-0 rounded-md overflow-hidden">
-                        <Image
-                          src={grievance.photoDataUri}
-                          alt={grievance.personName || 'Missing person'}
-                          layout="fill"
-                          objectFit="cover"
-                        />
-                      </div>
-                    )}
-                    <div className="flex-grow space-y-2">
-                      {grievance.type === 'Missing Person' && (
-                        <div className="space-y-2 text-sm">
-                          <p>
-                            <strong>Name:</strong> {grievance.personName}
-                          </p>
-                          <p>
-                            <strong>Last Seen:</strong> {grievance.lastSeen}
-                          </p>
-                        </div>
-                      )}
-                      {grievance.location && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <MapPin className="h-4 w-4" />
-                          <strong>Location:</strong> {grievance.location}
-                        </div>
-                      )}
-                      <p className="text-sm text-muted-foreground">{grievance.details}</p>
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuSub>
+                        <DropdownMenuSubTrigger disabled={candidates.length === 0}>
+                          <UserCheck className="mr-2 h-4 w-4" />
+                          {grievance.assignedStaffId ? 'Send someone else' : 'Send staff'}
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuPortal>
+                          <DropdownMenuSubContent className="max-h-80 overflow-y-auto">
+                            <DropdownMenuLabel>Available staff</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            {candidates.map((member) => (
+                              <DropdownMenuItem key={member.id} onClick={() => handleAssign(grievance, member)}>
+                                {member.name}
+                                <span className="ml-2 text-xs text-muted-foreground">
+                                  {STAFF_KIND_LABEL[member.kind]}
+                                </span>
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuSubContent>
+                        </DropdownMenuPortal>
+                      </DropdownMenuSub>
+                      <DropdownMenuItem onClick={() => handleResolve(grievance)}>
+                        <CheckCircle2 className="mr-2 h-4 w-4" />
+                        Mark resolved
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <SlaBadge grievance={grievance} now={now} />
+                  {grievance.urgency && (
+                    <StatusBadge
+                      tone={
+                        grievance.urgency === 'High' ? 'critical' : grievance.urgency === 'Medium' ? 'warning' : 'muted'
+                      }
+                    >
+                      {grievance.urgency} urgency
+                    </StatusBadge>
+                  )}
+                  {grievance.assignedStaffName && (
+                    <StatusBadge tone="predicted">
+                      {grievance.assignedStaffName}
+                      {grievance.assignedAt ? ` · ${minutesSince(grievance.assignedAt, now)}m ago` : ''}
+                    </StatusBadge>
+                  )}
+                </div>
+
+                <div className="flex gap-4 border-t border-ds-divider pt-3">
+                  {grievance.photoDataUri && (
+                    <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-[10px]">
+                      <Image
+                        src={grievance.photoDataUri}
+                        alt={grievance.personName || 'Missing person'}
+                        layout="fill"
+                        objectFit="cover"
+                      />
                     </div>
+                  )}
+                  <div className="min-w-0 flex-grow space-y-1.5 text-sm">
+                    {grievance.type === 'Missing Person' && (
+                      <>
+                        <p>
+                          <span className="text-ds-muted">Name </span>
+                          <span className="font-medium">{grievance.personName}</span>
+                        </p>
+                        <p>
+                          <span className="text-ds-muted">Last seen </span>
+                          <span className="font-medium">{grievance.lastSeen}</span>
+                        </p>
+                      </>
+                    )}
+                    {grievance.location && (
+                      <p className="flex items-center gap-1.5">
+                        <MapPin className="h-4 w-4 shrink-0 text-ds-muted" strokeWidth={1.75} aria-hidden />
+                        <span className="font-medium">{grievance.location}</span>
+                      </p>
+                    )}
+                    <p className="text-ds-ink-2">{grievance.details}</p>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </article>
             );
           })}
         </div>
       )}
-    </div>
+    </>
   );
 }

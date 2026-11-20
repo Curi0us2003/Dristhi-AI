@@ -110,8 +110,8 @@ export default function ZonesEditor({ event }) {
     <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
       <Card>
         <CardHeader>
-          <CardTitle>{editingId ? 'Edit zone' : 'Add zone'}</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-base">{editingId ? 'Edit zone' : 'Add zone'}</CardTitle>
+          <CardDescription className="text-[13px] leading-relaxed">
             A zone is an area you watch with one camera, such as Main Entrance or Stage Front.
           </CardDescription>
         </CardHeader>
@@ -187,8 +187,8 @@ export default function ZonesEditor({ event }) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Zones ({zones.length})</CardTitle>
-          <CardDescription>Zones without a camera have no live density and show No data.</CardDescription>
+          <CardTitle className="text-base">Zones ({zones.length})</CardTitle>
+          <CardDescription className="text-[13px] leading-relaxed">Zones without a camera have no live density and show No data.</CardDescription>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           {zones.length === 0 ? (

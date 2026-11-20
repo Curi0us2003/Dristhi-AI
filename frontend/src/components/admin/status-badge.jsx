@@ -1,36 +1,24 @@
 import { cn } from '@/lib/utils';
 
+/** Tones from the design tokens: each pairs a tint background with a dark text colour. */
 const toneClass = {
-  critical:
-    'bg-orange-100 text-orange-900 border-orange-300 dark:bg-orange-950 dark:text-orange-200 dark:border-orange-800',
-  warning:
-    'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950 dark:text-amber-200 dark:border-amber-800',
-  normal:
-    'bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-200 dark:border-emerald-800',
-  predicted:
-    'bg-blue-100 text-blue-900 border-blue-300 dark:bg-blue-950 dark:text-blue-200 dark:border-blue-800',
-  muted: 'bg-muted text-muted-foreground border-border',
+  critical: 'bg-ds-critical-tint text-ds-critical',
+  warning: 'bg-ds-warning-tint text-ds-warning',
+  normal: 'bg-ds-accent-tint text-ds-accent-ink',
+  predicted: 'bg-ds-predicted-tint text-ds-predicted',
+  muted: 'bg-ds-divider text-ds-ink-2',
 };
 
-const dotClass = {
-  critical: 'bg-orange-600',
-  warning: 'bg-amber-500',
-  normal: 'bg-emerald-600',
-  predicted: 'bg-blue-600',
-  muted: 'bg-muted-foreground',
-};
-
-/** Coloured status pill that always shows its word (never colour alone). */
+/** Status tag that always shows its word (never colour alone), as in the Dashboard mockup. */
 export function StatusBadge({ tone, children, className }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold',
+        'inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-[3px] text-xs font-semibold',
         toneClass[tone],
-        className,
+        className
       )}
     >
-      <span aria-hidden className={cn('h-1.5 w-1.5 rounded-full', dotClass[tone])} />
       {children}
     </span>
   );
@@ -46,5 +34,17 @@ export function densityTone(status) {
       return 'normal';
     default:
       return 'muted';
+  }
+}
+
+/** Bar colour for a density status (track is ds-divider). */
+export function densityBarClass(status) {
+  switch (status) {
+    case 'Critical':
+      return 'bg-ds-critical-bar';
+    case 'Warning':
+      return 'bg-ds-warning-bar';
+    default:
+      return 'bg-ds-accent';
   }
 }
