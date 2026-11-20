@@ -1,116 +1,86 @@
 #!/bin/bash
-# deploy.sh - Deploy Crowd Monitoring API to GCP Cloud Run
-# Usage: ./deploy.sh -p "your-gcp-project-id" [-r "us-central1"] [-s "crowd-monitoring-api"] [-k "path/to/key.json"]
+# deploy.sh - Build the backend image with Cloud Build and deploy it to Cloud Run (asia-south1).
+#
+# Usage:
+#   ./deploy.sh -p dhristi-ai-buildathon [-t v3] [-r asia-south1] [-s crowd-monitoring-api]
+#               [-i <project>:<region>:dristhi-fdc] [-a https://<attendee-site>] [-c "<origin>,<origin>"]
+#
+# Needs (one-time, see README "Deployment"): the Cloud SQL instance, the Secret Manager secret
+# `dristhi-database-url` holding the socket-form DATABASE_URL, and the Artifact Registry repo.
+# No secret is passed on the command line: Cloud Run reads DATABASE_URL from Secret Manager.
+
+set -euo pipefail
 
 PROJECT_ID=""
-REGION="us-central1"
+REGION="asia-south1"
 SERVICE_NAME="crowd-monitoring-api"
-KEY_FILE=""
+REPO_NAME="crowd-monitoring"
+TAG=""
+SQL_INSTANCE=""
+PUBLIC_APP_URL=""
+CORS_ORIGINS=""
+DB_SECRET="dristhi-database-url"
 
-while getopts "p:r:s:k:" opt; do
+while getopts "p:r:s:t:i:a:c:" opt; do
   case $opt in
     p) PROJECT_ID="$OPTARG" ;;
     r) REGION="$OPTARG" ;;
     s) SERVICE_NAME="$OPTARG" ;;
-    k) KEY_FILE="$OPTARG" ;;
+    t) TAG="$OPTARG" ;;
+    i) SQL_INSTANCE="$OPTARG" ;;
+    a) PUBLIC_APP_URL="$OPTARG" ;;
+    c) CORS_ORIGINS="$OPTARG" ;;
     \?) echo "Invalid option -$OPTARG" >&2; exit 1 ;;
   esac
 done
 
-echo "========================================================="
-echo "      GCP Cloud Run Deployer - Crowd Monitoring API      "
-echo "========================================================="
-
 if [ -z "$PROJECT_ID" ]; then
-    read -p "Enter your GCP Project ID: " PROJECT_ID
-    if [ -z "$PROJECT_ID" ]; then
-        echo "Error: Project ID is required. Exiting."
-        exit 1
-    fi
+  read -r -p "GCP project ID: " PROJECT_ID
+  [ -z "$PROJECT_ID" ] && { echo "Project ID is required." >&2; exit 1; }
 fi
 
-# 1. Authenticate if KeyFile is provided
-if [ -n "$KEY_FILE" ]; then
-    if [ ! -f "$KEY_FILE" ]; then
-        echo "Error: Key file not found at: $KEY_FILE. Exiting."
-        exit 1
-    fi
-    echo "🔐 Authenticating using service account key file..."
-    gcloud auth activate-service-account --key-file="$KEY_FILE"
-    if [ $? -ne 0 ]; then
-        echo "Error: Authentication failed. Exiting."
-        exit 1
-    fi
-else
-    echo "ℹ️ Using existing gcloud credentials. (Run 'gcloud auth login' first if not authenticated)"
-fi
+# Defaults that follow from the project: the admin site is the project's default Hosting site,
+# the attendee site is dhristi-ai-attendee (frontend/.firebaserc.example).
+TAG="${TAG:-$(git rev-parse --short HEAD 2>/dev/null || date +%Y%m%d%H%M)}"
+SQL_INSTANCE="${SQL_INSTANCE:-${PROJECT_ID}:${REGION}:dristhi-fdc}"
+PUBLIC_APP_URL="${PUBLIC_APP_URL:-https://dhristi-ai-attendee.web.app}"
+CORS_ORIGINS="${CORS_ORIGINS:-https://${PROJECT_ID}.web.app,https://${PROJECT_ID}.firebaseapp.com,${PUBLIC_APP_URL}}"
+IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${SERVICE_NAME}:${TAG}"
 
-# 2. Set Active Project
-echo "⚙️ Setting active project to '$PROJECT_ID'..."
-gcloud config set project "$PROJECT_ID"
-if [ $? -ne 0 ]; then
-    echo "Error: Failed to set GCP project. Exiting."
-    exit 1
-fi
+echo "Project:      $PROJECT_ID"
+echo "Region:       $REGION"
+echo "Image:        $IMAGE"
+echo "Cloud SQL:    $SQL_INSTANCE"
+echo "CORS origins: $CORS_ORIGINS"
+echo
 
-# 3. Enable Required Services
-echo "🔌 Enabling required GCP services (Cloud Run, Cloud Build, Artifact Registry)..."
-gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com
-if [ $? -ne 0 ]; then
-    echo "Error: Failed to enable required GCP services. Exiting."
-    exit 1
-fi
+gcloud config set project "$PROJECT_ID" >/dev/null
 
-# 4. Check/Create Artifact Registry Repository
-REPO_NAME="crowd-monitoring"
-echo "📦 Checking if Artifact Registry repository '$REPO_NAME' exists in '$REGION'..."
-repo_exists=$(gcloud artifacts repositories describe "$REPO_NAME" --location="$REGION" --format="value(name)" 2>/dev/null)
+echo "Building with Cloud Build (a few minutes)..."
+gcloud builds submit --tag "$IMAGE" .
 
-if [ -z "$repo_exists" ]; then
-    echo "📦 Repository '$REPO_NAME' not found. Creating..."
-    gcloud artifacts repositories create "$REPO_NAME" \
-        --repository-format=docker \
-        --location="$REGION" \
-        --description="Docker repository for Crowd Monitoring API"
-    if [ $? -ne 0 ]; then
-        echo "Error: Failed to create Artifact Registry repository. Exiting."
-        exit 1
-    fi
-else
-    echo "✅ Repository '$REPO_NAME' already exists."
-fi
-
-# 5. Build Image using Cloud Build (bypasses local Docker requirements)
-IMAGE_TAG="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${SERVICE_NAME}:latest"
-echo "🚀 Submitting build to Google Cloud Build (this may take a few minutes)..."
-echo "Image Tag: $IMAGE_TAG"
-
-gcloud builds submit --tag "$IMAGE_TAG" .
-if [ $? -ne 0 ]; then
-    echo "Error: Cloud Build failed. Exiting."
-    exit 1
-fi
-echo "✅ Cloud Build completed successfully!"
-
-# 6. Deploy to Cloud Run
-echo "🚀 Deploying to Google Cloud Run..."
+echo "Deploying to Cloud Run..."
+# One instance only: crowd counts live in process memory until task 03 moves them out.
+# --timeout 3600 keeps MJPEG camera streams open for up to an hour.
+# ^@^ makes "@" the list separator, because CORS_ORIGINS itself contains commas.
 gcloud run deploy "$SERVICE_NAME" \
-    --image "$IMAGE_TAG" \
-    --platform managed \
-    --region "$REGION" \
-    --no-cpu-throttling \
-    --min-instances 1 \
-    --max-instances 1 \
-    --cpu 2 \
-    --memory 4Gi \
-    --allow-unauthenticated \
-    --port 8080 \
-    --set-env-vars ENV=production
-if [ $? -ne 0 ]; then
-    echo "Error: Cloud Run deployment failed. Exiting."
-    exit 1
-fi
+  --image "$IMAGE" \
+  --region "$REGION" \
+  --platform managed \
+  --cpu 2 \
+  --memory 4Gi \
+  --min-instances 1 \
+  --max-instances 1 \
+  --no-cpu-throttling \
+  --timeout 3600 \
+  --port 8080 \
+  --allow-unauthenticated \
+  --add-cloudsql-instances "$SQL_INSTANCE" \
+  --set-secrets "DATABASE_URL=${DB_SECRET}:latest" \
+  --set-env-vars "^@^ENV=production@FIREBASE_PROJECT_ID=${PROJECT_ID}@PUBLIC_APP_URL=${PUBLIC_APP_URL}@CORS_ORIGINS=${CORS_ORIGINS}"
 
-echo "========================================================="
-echo "🎉 Deployment completed successfully!"
-echo "========================================================="
+URL=$(gcloud run services describe "$SERVICE_NAME" --region "$REGION" --format="value(status.url)")
+echo
+echo "Deployed: $URL"
+echo "Check:    $URL/api/health"
+echo "Frontend: set NEXT_PUBLIC_BACKEND_URL=$URL in frontend/.env, then npm run deploy"

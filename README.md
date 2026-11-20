@@ -56,20 +56,21 @@ operator can approve. Works offline with a rule-based fallback plan if no AI key
 ## Architecture
 
 ```
- ┌────────────────────────────┐        ┌───────────────────────────────┐
- │  Next.js static frontend   │  /api  │  FastAPI backend (backend/)   │
- │  (Firebase Hosting)        ├───────►│  • DM-Count crowd density     │
- │  • Firebase Auth/Firestore │ proxy  │  • 1 thread per CCTV feed     │
- │  • Gemini REST (browser)   │  (CF)  │  • analytics, alerts, MJPEG   │
- └─────────────┬──────────────┘        └───────────────┬───────────────┘
-               │                                       │
-        Firebase Firestore                     CCTV sources (feeds.json)
-  users · admin · guards · grievances          HTTP(S) / RTSP / local .mp4
-  ambulances · medical_staff · notifications
+ ┌────────────────────────────┐ HTTPS  ┌───────────────────────────────┐
+ │  Next.js static frontend   ├───────►│  FastAPI backend (Cloud Run)  │
+ │  (Firebase Hosting:        │        │  • DM-Count crowd density     │
+ │   admin + attendee sites)  │        │  • 1 thread per CCTV feed     │
+ │  • Firebase Auth (sign-in) │        │  • admin + attendee APIs      │
+ │  • Gemini REST (browser)   │        │  • analytics, alerts, MJPEG   │
+ └────────────────────────────┘        └───────┬───────────────┬───────┘
+                                               │               │
+                               Cloud SQL (Postgres + PostGIS)  CCTV sources (feeds.json)
+                   events · zones · pois · admins · staff ·    HTTP(S) / RTSP / local .mp4
+                   attendees · grievances · dispatches · notifications
 ```
 
-- In production, Firebase Hosting rewrites `/api/**` to a Cloud Function (`frontend/functions`)
-  that transparently proxies to the backend, so the browser never needs mixed-content HTTP.
+- In production the browser calls the backend on Cloud Run directly over HTTPS
+  (`NEXT_PUBLIC_BACKEND_URL`); CORS allows only the two Hosting sites.
 - AI features call the Gemini REST API directly from the browser (no server runtime required).
 
 ---
@@ -95,10 +96,7 @@ operator can approve. Works offline with a rule-based fallback plan if no AI key
     │   ├── ai/             # Gemini client + chatbot / autonomous agent / summary flows
     │   ├── components/     # UI (shadcn/ui), map, chatbot, report forms
     │   ├── contexts/ hooks/ lib/ services/ types/
-    │   └── scripts/        # Firestore seed + create-admin scripts
-    ├── functions/          # Cloud Function: /api/** → backend proxy
-    ├── firebase.json       # Hosting, rewrites, cache headers
-    ├── firestore.rules
+    ├── firebase.json       # Two Hosting sites (admin, attendee), redirects, cache headers
     └── .env.example
 ```
 
@@ -141,7 +139,7 @@ To use YOLO instead: `pip install ultralytics` and set `CROWD_MODEL=yolo`.
 ### Prerequisites
 - **Python 3.10+**
 - **Node.js 20+**
-- A **Firebase project** with Authentication (Email/Password + Google) and Firestore enabled
+- A **Firebase project** with Authentication (Email/Password + Google) enabled, and the Cloud SQL proxy for the database
 - Optional: Google Maps JavaScript API key, Gemini API key ([Google AI Studio](https://aistudio.google.com/apikey))
 
 ### 1. Backend
@@ -228,7 +226,7 @@ curl -o heat.jpg "http://localhost:5000/api/video/snapshot/feed_6?overlay=true" 
 | `npm run db:seed` | Seed guards, ambulances, medical staff and grievances |
 | `npm run db:seed:medical` / `db:seed:ambulances` | Seed a single collection |
 | `npm run create-admin -- …` | Create an Operator account (Auth user + `admin` doc) |
-| `npm run deploy` | Build and deploy hosting, functions and Firestore rules |
+| `npm run deploy` | Build and deploy both Hosting sites |
 
 ---
 
@@ -239,7 +237,7 @@ curl -o heat.jpg "http://localhost:5000/api/video/snapshot/feed_6?overlay=true" 
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `NEXT_PUBLIC_FIREBASE_*` | ✅ | Firebase web-app config (Console → Project settings) |
-| `NEXT_PUBLIC_BACKEND_URL` | | Backend origin. Unset → `http://127.0.0.1:5000`. **Empty** → same-origin `/api` (use this on Firebase Hosting) |
+| `NEXT_PUBLIC_BACKEND_URL` | | Backend origin. Unset → `http://127.0.0.1:5000`. Deployed: the Cloud Run URL |
 | `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | | Enables the Map View page |
 | `NEXT_PUBLIC_GEMINI_API_KEY` | | Gemini key for chatbot, agent and AI summary. Falls back to the Firebase API key; with no key, offline fallbacks are used |
 | `NEXT_PUBLIC_GEMINI_MODEL` | | Gemini model id (default `gemini-2.5-flash`) |
@@ -257,13 +255,14 @@ curl -o heat.jpg "http://localhost:5000/api/video/snapshot/feed_6?overlay=true" 
 | `ANALYSIS_INTERVAL` | `5` | Seconds between analyses of the same camera |
 | `INFERENCE_THREADS` | all cores | ONNX Runtime threads |
 | `ALERT_THRESHOLD` / `CONGESTION_THRESHOLD` | `90` / `70` | Critical / warning level, in % of a camera's `max_capacity` |
+| `DATABASE_URL` | – | Cloud SQL Postgres (SQLAlchemy URL). Cloud Run: from Secret Manager, socket form |
+| `FIREBASE_PROJECT_ID` | – | Firebase project whose sign-in tokens are accepted |
+| `CORS_ORIGINS` | `localhost:9002`, `127.0.0.1:9002` | Sites allowed to call the API from a browser, comma-separated |
+| `PUBLIC_APP_URL` | `http://localhost:9002` | Attendee site, used in the event QR link |
 
 Thresholds can also be changed at runtime via `POST /api/config/thresholds`.
 
-### Cloud Function – `frontend/functions/.env`
-
-| Variable | Description |
-|----------|-------------|
+----------|-------------|
 | `BACKEND_URL` | Public origin of the FastAPI backend that `/api/**` is proxied to |
 
 ---
@@ -291,31 +290,46 @@ Interactive docs are available at `/docs` when the backend is running.
 
 ## Deployment
 
-### Backend → Google Cloud Run
+Backend on **Cloud Run** (`asia-south1`), frontend as two **Firebase Hosting** sites (admin and
+attendee), data in **Cloud SQL**. The browser calls the Cloud Run URL directly; there is no proxy.
+
+### One-time setup (project owner)
+
+1. Billing → Budgets & alerts: a budget with alerts. One always-on Cloud Run instance costs money.
+2. `gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com secretmanager.googleapis.com sqladmin.googleapis.com`
+3. `gcloud artifacts repositories create crowd-monitoring --repository-format=docker --location=asia-south1`
+4. Secret `dristhi-database-url` with the socket-form URL
+   `postgresql+psycopg://dristhi_app:<password>@/dristhi?host=/cloudsql/<project>:asia-south1:dristhi-fdc`.
+5. Grant the Cloud Run service account **Cloud SQL Client** and **Secret Manager Secret Accessor**.
+6. Firebase console: enable Email/Password and Google sign-in, create the Hosting site
+   `dhristi-ai-attendee`, and add both sites under Auth → Settings → Authorized domains.
+
+### Backend → Cloud Run
 
 ```bash
 cd backend
-./deploy.sh -p <gcp-project-id> [-r us-central1]        # macOS / Linux
-./deploy.ps1 -ProjectId <gcp-project-id>                # Windows PowerShell
+.venv/bin/alembic upgrade head                 # through cloud-sql-proxy on port 5433
+./deploy.sh -p <gcp-project-id>                # Windows: .\deploy.ps1 -ProjectId <gcp-project-id>
 ```
 
-The script enables the required APIs, builds the image with Cloud Build and deploys it with
-2 vCPU / 4 GiB and one always-on instance (feed processing runs continuously).
-Any Docker host works too: `docker build -t dristhi-backend backend && docker run -p 8080:8080 dristhi-backend`.
+The script builds the image with Cloud Build (tagged with the git commit), deploys it with
+2 vCPU / 4 GiB, one always-on instance, the Cloud SQL connection, `DATABASE_URL` from Secret
+Manager and `CORS_ORIGINS` set to the two Hosting sites, and prints the service URL.
+Between events, `./scripts/scale.sh down`; before an event, `./scripts/scale.sh up`.
 
 ### Frontend → Firebase Hosting
 
+In `frontend/.env`: the real Firebase web config, `NEXT_PUBLIC_USE_EMULATORS=false`,
+`NEXT_PUBLIC_BACKEND_URL=<Cloud Run URL>` and `NEXT_PUBLIC_ATTENDEE_URL=https://dhristi-ai-attendee.web.app`.
+
 ```bash
 cd frontend
+cp .firebaserc.example .firebaserc
 npx firebase login
-npx firebase use <your-firebase-project-id>
-cp functions/.env.example functions/.env    # set BACKEND_URL
-# In .env set NEXT_PUBLIC_BACKEND_URL= (empty) so the app uses the /api proxy
-npm run deploy
+npm run deploy:admin && npm run deploy:attendee
 ```
 
-Add your hosting domain to **Firebase Auth → Settings → Authorized domains**. Cloud Functions
-require the Blaze (pay-as-you-go) plan.
+Add both Hosting sites to the Google Maps (and Gemini) API keys' website restrictions.
 
 ---
 
@@ -333,12 +347,9 @@ require the Blaze (pay-as-you-go) plan.
 
 ## Security notes
 
-- **Firestore rules** (`frontend/firestore.rules`) currently allow any client to read/write until
-  2028-01-01 so that the seed scripts work. Tighten them (e.g. `request.auth != null`, per-collection
-  rules) before a real deployment.
 - `NEXT_PUBLIC_*` values are embedded in the browser bundle. Restrict your Firebase, Maps and Gemini
   API keys by HTTP referrer and API in the Google Cloud console.
-- The backend has open CORS and no authentication; keep it behind the Cloud Function proxy or a firewall.
+- Admin API routes need a Firebase ID token of an admin in Cloud SQL; CORS allows only the configured sites. Camera and analytics routes are still public (task 04).
 - Never commit `.env` files or service-account keys (they are git-ignored).
 
 ---
@@ -346,8 +357,8 @@ require the Blaze (pay-as-you-go) plan.
 ## Tech stack
 
 **Frontend:** Next.js 15 (App Router, static export) · JavaScript (React) · Tailwind CSS · shadcn/ui (Radix) ·
-Recharts · Google Maps · Firebase Auth & Firestore · Gemini API
+Recharts · Google Maps · Firebase Auth · Cloud SQL · Gemini API
 
 **Backend:** FastAPI · Uvicorn · DM-Count via ONNX Runtime · Hugging Face Hub · OpenCV · pandas / NumPy
 
-**Infra:** Firebase Hosting + Cloud Functions · Google Cloud Run / Compute Engine · Docker
+**Infra:** Firebase Hosting · Google Cloud Run · Cloud SQL (Postgres + PostGIS) · Secret Manager · Docker

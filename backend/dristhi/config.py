@@ -23,3 +23,14 @@ def public_app_url() -> str:
 def firebase_project_id() -> str | None:
     """Firebase project whose ID tokens we accept. Locally with the Auth emulator: demo-dristhi."""
     return os.environ.get("FIREBASE_PROJECT_ID") or os.environ.get("GOOGLE_CLOUD_PROJECT") or None
+
+
+def cors_origins() -> list[str]:
+    """Sites allowed to call the API from a browser: CORS_ORIGINS, comma-separated.
+    Deployed: the two Firebase Hosting sites. Unset: the local dev frontend."""
+    raw = os.environ.get("CORS_ORIGINS", "")
+    origins = [o.strip().rstrip("/") for o in raw.split(",") if o.strip()]
+    return origins or [
+        "http://localhost:9002",
+        "http://127.0.0.1:9002",
+    ]

@@ -24,6 +24,7 @@ for _stream in (sys.stdout, sys.stderr):
         _stream.reconfigure(encoding="utf-8", errors="replace")
 
 from crowd_counter import load_counter, render_density_overlay
+from dristhi.config import cors_origins
 from dristhi.errors import register_error_handlers
 from dristhi.routers import attendees as attendees_router
 from dristhi.routers import venue as venue_router
@@ -331,7 +332,7 @@ app = FastAPI(title="Crowd Monitoring API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
