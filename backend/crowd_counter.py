@@ -149,8 +149,12 @@ def load_counter():
     return ContourCounter()
 
 
-def render_density_overlay(frame: np.ndarray, density: np.ndarray | None, count: int | None = None) -> np.ndarray:
-    """Blends a JET heatmap of `density` over `frame` and stamps the count."""
+def render_density_overlay(frame: np.ndarray, density: np.ndarray | None, count: int | None = None,
+                           age_s: float | None = None) -> np.ndarray:
+    """Blends a JET heatmap of `density` over `frame` and stamps the count.
+
+    `age_s`: seconds since the counted frame was taken. Shown so a count from an earlier frame
+    is not mistaken for a count of the live picture."""
     out = frame.copy()
     if density is not None and density.size and float(density.max()) > 1e-6:
         heat = cv2.resize(density, (frame.shape[1], frame.shape[0]), interpolation=cv2.INTER_CUBIC)
@@ -159,7 +163,7 @@ def render_density_overlay(frame: np.ndarray, density: np.ndarray | None, count:
         alpha = (np.clip(heat * 1.5, 0, 0.6))[..., None]  # transparent where nobody is
         out = (out * (1 - alpha) + color * alpha).astype(np.uint8)
     if count is not None:
-        label = f"People: {count}"
+        label = f"People: {count}" + (f" ({age_s:.0f}s ago)" if age_s is not None and age_s >= 2 else "")
         cv2.rectangle(out, (8, 8), (16 + 13 * len(label), 40), (0, 0, 0), -1)
         cv2.putText(out, label, (14, 32), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2, cv2.LINE_AA)
     return out

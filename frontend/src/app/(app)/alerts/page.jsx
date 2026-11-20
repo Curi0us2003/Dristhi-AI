@@ -93,17 +93,24 @@ export default function AlertsPage() {
       }
       const predictionsData = await predictionsResponse.json();
 
-      const predictions = Array.isArray(predictionsData.predictions) ? predictionsData.predictions : [];
-
-      const predictedAlerts = predictions
-        .filter((p) => p.riskLevel === 'high')
-        .map((p) => ({
-          feed_id: `pred_${p.sectorId.replace(' ', '_')}`,
-          feed_name: p.sectorId,
+      // `predictions` is an object keyed by feed id: { feed_1: { feed_name, predictions: { '15_min' },
+      // risk_level, reason, minutes_to_critical, ... } }. Only feeds not already critical get a
+      // Predicted alert, so one zone is not listed twice.
+      const criticalNow = new Set(
+        alertsData.alerts.filter((a) => a.alert_level === 'critical').map((a) => a.feed_id),
+      );
+      const predictedAlerts = Object.entries(predictionsData.predictions ?? {})
+        .filter(([feedId, p]) => p.risk_level === 'high' && !criticalNow.has(feedId))
+        .map(([feedId, p]) => ({
+          feed_id: `pred_${feedId}`,
+          feed_name: p.feed_name,
           alert_level: 'predicted',
-          current_count: p.predictedCrowd,
-          recommendations: p.recommendations,
-          timestamp: new Date().toISOString(),
+          current_count: p.predictions['15_min'],
+          recommendations:
+            p.minutes_to_critical != null
+              ? `${p.reason} Critical in about ${Math.round(p.minutes_to_critical)} min.`
+              : p.reason,
+          timestamp: predictionsData.timestamp,
         }));
 
       const combined = [...alertsData.alerts, ...predictedAlerts];

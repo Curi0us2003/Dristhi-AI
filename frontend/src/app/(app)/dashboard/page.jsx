@@ -746,7 +746,8 @@ export default function DashboardPage() {
               const isAlert =
                 matchedAlert?.alert_level === 'warning' || matchedAlert?.alert_level === 'critical';
               const density = matchedAlert?.density_percentage || 0;
-              const count = matchedAlert?.current_count || 0;
+              // No alert entry yet = the feed has not been counted since the backend started
+              const count = matchedAlert ? matchedAlert.current_count : '—';
 
               return (
                 <Card

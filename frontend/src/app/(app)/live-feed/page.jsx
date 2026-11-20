@@ -436,7 +436,10 @@ export default function LiveFeedPage() {
                         <Users className="h-3 w-3" />
                         {feedData.current_count} / {feedData.max_capacity} people
                       </span>
-                      <span>Density: {feedData.density_percentage}%</span>
+                      <span>
+                        Density: {feedData.density_percentage}%
+                        {feedData.age_seconds >= 2 && ` · counted ${feedData.age_seconds}s ago`}
+                      </span>
                     </div>
                   )}
                 </div>

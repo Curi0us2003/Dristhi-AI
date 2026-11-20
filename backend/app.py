@@ -24,6 +24,7 @@ for _stream in (sys.stdout, sys.stderr):
         _stream.reconfigure(encoding="utf-8", errors="replace")
 
 from crowd_counter import load_counter, render_density_overlay
+from forecast import forecast_feed
 from dristhi.errors import register_error_handlers
 from dristhi.routers import attendees as attendees_router
 from dristhi.routers import venue as venue_router
@@ -39,15 +40,50 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 # ─────────────────────────────────────────────────────────────
 counter = load_counter()
 
-# Seconds between two analyses of the same feed
+# Seconds between two analyses of the same feed. On CPU one analysis takes ~1-3 s and all feeds
+# share the model, so with many feeds each one is refreshed roughly every (feeds x analysis time).
 ANALYSIS_INTERVAL = float(os.environ.get("ANALYSIS_INTERVAL", "5"))
+# Minutes of history the forecast fits its trend on
+PREDICTION_WINDOW_MIN = float(os.environ.get("PREDICTION_WINDOW_MIN", "5"))
+
+
+class FairLock:
+    """First come, first served lock, so every feed gets its turn on the model.
+
+    A plain Lock lets whichever thread wakes first win, and a feed can wait several rounds.
+    """
+
+    def __init__(self):
+        self._mutex = threading.Lock()
+        self._waiting = deque()
+        self._busy = False
+
+    def __enter__(self):
+        with self._mutex:
+            if not self._busy and not self._waiting:
+                self._busy = True
+                return self
+            turn = threading.Event()
+            self._waiting.append(turn)
+        turn.wait()  # the releasing thread hands the lock straight to us
+        return self
+
+    def __exit__(self, *exc):
+        with self._mutex:
+            if self._waiting:
+                self._waiting.popleft().set()
+            else:
+                self._busy = False
+
+
+MODEL_TURN = FairLock()
 
 
 # ─────────────────────────────────────────────────────────────
 # Global State
 # ─────────────────────────────────────────────────────────────
 feeds_data = {}
-analytics_data = defaultdict(lambda: deque(maxlen=50))
+analytics_data = defaultdict(lambda: deque(maxlen=400))  # ~30 min at the fastest refresh
 # Alert levels as % of each feed's max_capacity (configurable via /api/config/thresholds)
 alert_threshold = int(os.environ.get("ALERT_THRESHOLD", "90"))        # critical
 congestion_threshold = int(os.environ.get("CONGESTION_THRESHOLD", "70"))  # warning
@@ -170,6 +206,7 @@ class FeedProcessor:
         self.current_count = 0
         self.latest_frame = None     # last analysed frame (BGR)
         self.latest_density = None   # its density map
+        self.analysed_at = None      # epoch seconds when that frame was taken
         self.retry_count = 0
         self.max_retries = 3
         self.started = time.time()   # wall clock that video-file playback is synced to
@@ -201,20 +238,26 @@ class FeedProcessor:
             next_analysis = 0.0
 
             while self.running:
-                if duration_ms:
-                    # File: wait for the next slot, then seek to the matching position
-                    time.sleep(max(0.0, next_analysis - time.time()))
-                    self.cap.set(cv2.CAP_PROP_POS_MSEC, self.playback_ms(duration_ms))
-                    ret, frame = self.cap.read()
-                    if not ret:  # seek past the last keyframe; restart from the top
-                        self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                        ret, frame = self.cap.read()
-                else:
-                    # Live stream: keep draining frames so we always analyse the newest
-                    ret = self.cap.grab()
-                    if ret and time.time() < next_analysis:
+                if not duration_ms and time.time() < next_analysis:
+                    # Live stream between analyses: keep draining so the connection stays current
+                    if self.cap.grab():
                         continue
-                    ret, frame = self.cap.retrieve() if ret else (False, None)
+                    ret = False
+                else:
+                    if duration_ms:
+                        time.sleep(max(0.0, next_analysis - time.time()))
+                    # Read the frame only once it is our turn on the model, so the published
+                    # count describes what the camera shows now, not what it showed while we
+                    # waited behind the other feeds.
+                    with MODEL_TURN:
+                        ret, frame = self._file_frame(duration_ms) if duration_ms else self._live_frame(fps)
+                        if ret:
+                            captured_at = time.time()
+                            try:
+                                person_count, density = counter.count(frame)
+                            except Exception as e:
+                                print(f"Counting error for {self.feed_id}: {e}")
+                                person_count = None
 
                 if not ret:
                     print(f"No frame from {self.feed_id}, reconnecting...")
@@ -231,15 +274,13 @@ class FeedProcessor:
 
                 self.retry_count = 0
                 next_analysis = time.time() + ANALYSIS_INTERVAL
-                try:
-                    person_count, density = counter.count(frame)
-                except Exception as e:
-                    print(f"Counting error for {self.feed_id}: {e}")
+                if person_count is None:
                     continue
 
                 self.current_count = person_count
                 self.latest_frame, self.latest_density = frame, density
-                self._log_data(person_count, frame)
+                self.analysed_at = captured_at
+                self._log_data(person_count, captured_at)
 
         except Exception as e:
             print(f"Error processing {self.feed_id}: {e}")
@@ -248,8 +289,28 @@ class FeedProcessor:
                 self.cap.release()
             gc.collect()
 
-    def _log_data(self, count, frame):
-        timestamp = datetime.now()
+    def _file_frame(self, duration_ms):
+        """Frame of a looping video file at the current wall-clock position."""
+        self.cap.set(cv2.CAP_PROP_POS_MSEC, self.playback_ms(duration_ms))
+        ret, frame = self.cap.read()
+        if not ret:  # seek past the last keyframe; restart from the top
+            self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            ret, frame = self.cap.read()
+        return ret, frame
+
+    def _live_frame(self, fps):
+        """Newest frame of a live stream: skip whatever buffered while we waited for our turn."""
+        deadline = time.time() + 2.0
+        while time.time() < deadline:
+            started = time.time()
+            if not self.cap.grab():
+                return False, None
+            if time.time() - started > 0.5 / fps:  # had to wait for this frame, so it is live
+                break
+        return self.cap.retrieve()
+
+    def _log_data(self, count, captured_at):
+        timestamp = datetime.fromtimestamp(captured_at)
         density_percentage = (count / self.config['max_capacity']) * 100
 
         alert_level = "normal"
@@ -259,6 +320,7 @@ class FeedProcessor:
             alert_level = "warning"
 
         data_point = {
+            "ts": captured_at,
             "timestamp": timestamp.isoformat(),
             "count": count,
             "density_percentage": round(density_percentage, 2),
@@ -376,8 +438,15 @@ async def health_check():
 
 @app.get("/api/feeds")
 async def get_all_feeds():
+    """Feeds that have been counted at least once. `age_seconds` = how old the count is."""
+    now = time.time()
+    feeds = {
+        fid: {**data, "age_seconds": round(now - feed_processors[fid].analysed_at)}
+        for fid, data in list(feeds_data.items())
+        if feed_processors[fid].analysed_at
+    }
     return {
-        "feeds": feeds_data,
+        "feeds": feeds,
         "total_count": sum(feed.get("current_count", 0) for feed in feeds_data.values()),
         "timestamp": datetime.now().isoformat()
     }
@@ -479,7 +548,8 @@ async def get_video_stream(feed_id: str, overlay: bool = False):
                         try:
                             frame = cv2.resize(frame, (640, 480))
                             if overlay:
-                                frame = render_density_overlay(frame, proc.latest_density, proc.current_count)
+                                age = time.time() - proc.analysed_at if proc.analysed_at else None
+                                frame = render_density_overlay(frame, proc.latest_density, proc.current_count, age)
                             encode_param = [
                                 int(cv2.IMWRITE_JPEG_QUALITY), 75,
                                 int(cv2.IMWRITE_JPEG_OPTIMIZE), 1
@@ -684,24 +754,35 @@ async def get_heatmap_data():
 
 @app.get("/api/predictions")
 async def get_crowd_predictions():
-    predictions = {}
-    for feed_id, data_points in analytics_data.items():
-        if len(data_points) >= 5:
-            recent_counts = [point["count"] for point in list(data_points)[-10:]]
-            avg_trend = np.mean(np.diff(recent_counts)) if len(recent_counts) > 1 else 0
-            current = recent_counts[-1]
-            pred_15 = max(0, int(current + avg_trend * 3))
-            pred_30 = max(0, int(current + avg_trend * 6))
-            pred_pct = pred_15 / CCTV_FEEDS[feed_id]["max_capacity"] * 100
-            risk = "high" if pred_pct >= alert_threshold else "medium" if pred_pct >= congestion_threshold else "low"
+    """15/30-minute forecast per feed from the trend of the last PREDICTION_WINDOW_MIN minutes.
 
-            predictions[feed_id] = {
-                "feed_name": CCTV_FEEDS[feed_id]["name"],
-                "current": current,
-                "trend": round(float(avg_trend), 2),
-                "predictions": {"15_min": pred_15, "30_min": pred_30},
-                "risk_level": risk
-            }
+    A feed is left out until it has enough history (6 counts over at least 3 minutes).
+    """
+    now = time.time()
+    predictions = {}
+    for feed_id, data_points in list(analytics_data.items()):
+        f = forecast_feed(
+            [(p["ts"], p["count"]) for p in list(data_points)],
+            capacity=CCTV_FEEDS[feed_id]["max_capacity"],
+            critical_pct=alert_threshold,
+            warning_pct=congestion_threshold,
+            now=now,
+            window_min=PREDICTION_WINDOW_MIN,
+        )
+        if f is None:
+            continue
+        predictions[feed_id] = {
+            "feed_name": CCTV_FEEDS[feed_id]["name"],
+            "current": f.current,
+            "trend_per_min": f.trend_per_min,
+            "predictions": f.predicted,
+            "predicted_pct": f.predicted_pct,
+            "minutes_to_critical": f.minutes_to_critical,
+            "risk_level": f.risk_level,
+            "reason": f.reason,
+            "samples": f.samples,
+            "window_minutes": f.window_minutes,
+        }
     return {"predictions": predictions, "timestamp": datetime.now().isoformat()}
 
 
