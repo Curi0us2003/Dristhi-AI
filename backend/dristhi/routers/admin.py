@@ -21,6 +21,7 @@ from dristhi import config
 from dristhi.auth import admin_event, current_admin
 from dristhi.db import get_db
 from dristhi.errors import ApiError
+from dristhi.routers.venue import venue_feature_collection
 from dristhi.models import (
     EVENT_STATUSES,
     STAFF_KINDS,
@@ -197,6 +198,12 @@ def update_event(body: EventPatch, event: Event = Depends(admin_event), db: Sess
     db.commit()
     db.refresh(event)
     return _event_out(db, event)
+
+
+@router.get("/events/{event_id}/venue-map")
+def admin_venue_map(event: Event = Depends(admin_event), db: Session = Depends(get_db)) -> dict:
+    """Same zones and facilities as the attendee map, for any status (draft events too)."""
+    return venue_feature_collection(db, event)
 
 
 # ── Zones ────────────────────────────────────────────────────────────────────────────────

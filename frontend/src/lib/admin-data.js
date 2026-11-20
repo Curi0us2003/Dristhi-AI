@@ -4,6 +4,7 @@
  * organization by the backend.
  */
 import { api, apiBlob, toGrievance, ts, watch } from '@/lib/api';
+import { parseVenue } from '@/lib/venue';
 
 /**
  * Shapes the screens use (camelCase). The backend sends snake_case; the mappers below convert.
@@ -194,6 +195,11 @@ export function watchDispatches(eventId, cb) {
 export function watchGrievances(eventId, cb, status) {
   const q = status ? `?status=${status}` : '';
   return watch(async () => (await api(`${ev(eventId)}/grievances${q}`)).map(toGrievance), cb);
+}
+
+/** Zones and facilities of the event from Cloud SQL (same data as the attendee map, any status). */
+export async function fetchAdminVenueMap(eventId) {
+  return parseVenue(await api(`${ev(eventId)}/venue-map`));
 }
 
 // ── Events ───────────────────────────────────────────────────────

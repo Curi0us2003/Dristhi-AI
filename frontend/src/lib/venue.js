@@ -61,7 +61,7 @@ const MAP_CACHE_KEY = 'dristhi.venue_map';
 
 /**
  * @typedef {{lat: number, lng: number}} LatLng
- * @typedef {{id: string, name: string, capacity: number, center: LatLng, paths: LatLng[]}} Zone
+ * @typedef {{id: string, name: string, capacity: number, feedId: string|null, center: LatLng, paths: LatLng[]}} Zone
  * @typedef {{id: string, kind: string, name: string, zoneId: string|null, position: LatLng}} Poi
  * @returns {Promise<{zones: Zone[], pois: Poi[], cached: boolean}>}
  */
@@ -88,7 +88,8 @@ export async function fetchVenueMap(slug) {
   }
 }
 
-function parseVenue(fc) {
+/** GeoJSON from the backend → zones (with outline, centre, camera feed) and facilities. */
+export function parseVenue(fc) {
   const zones = [];
   const pois = [];
   for (const f of fc.features ?? []) {
@@ -98,6 +99,7 @@ function parseVenue(fc) {
         id: p.id,
         name: p.name,
         capacity: p.capacity,
+        feedId: p.feed_id ?? null,
         center: { lng: p.center[0], lat: p.center[1] },
         paths: f.geometry.coordinates[0].map(([lng, lat]) => ({ lat, lng })),
       });
