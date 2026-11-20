@@ -97,3 +97,53 @@
 
 
   
+/* Design tokens from docs/design/README.md, prefixed `ds-` so they don't clash with the shadcn
+   variables above. Used by the attendee app now; task 11 moves the operator screens onto them. */
+@layer base {
+  :root {
+    --ds-ground: #F4F5F1;
+    --ds-surface: #FCFCFA;
+    --ds-border: #E3E6E0;
+    --ds-divider: #ECEFE9;
+    --ds-input-border: #D3D9D1;
+    --ds-ink: #14202E;
+    --ds-ink-2: #3B4655;
+    --ds-muted: #5B6675;
+    --ds-accent: #0E7C6B;
+    --ds-accent-ink: #0B5E52;
+    --ds-accent-tint: #E3F1EC;
+    --ds-on-accent: #FCFCFA;
+    --ds-critical: #9A3412;
+    --ds-critical-tint: #FBE4DA;
+    --ds-critical-bar: #C2410C;
+    --ds-warning: #8A5A00;
+    --ds-warning-tint: #FBF0D9;
+    --ds-warning-bar: #D99A2B;
+    --ds-predicted: #234E86;
+    --ds-predicted-tint: #E3ECF8;
+    --ds-scrim: rgba(15, 27, 42, 0.45);
+  }
+  .dark {
+    --ds-ground: #0F1B2A;
+    --ds-surface: #14202E;
+    --ds-border: #26354A;
+    --ds-divider: #1E2C3E;
+    --ds-input-border: #33445C;
+    --ds-ink: #EEF1EC;
+    --ds-ink-2: #C3CAD3;
+    --ds-muted: #9AA5B3;
+    --ds-accent: #5CC9B0;
+    --ds-accent-ink: #7FD9C4;
+    --ds-accent-tint: #123A36;
+    --ds-on-accent: #0F1B2A;
+    --ds-critical: #F4A27E;
+    --ds-critical-tint: #3A1E14;
+    --ds-critical-bar: #E8743F;
+    --ds-warning: #F0C46A;
+    --ds-warning-tint: #33270F;
+    --ds-warning-bar: #D99A2B;
+    --ds-predicted: #9DBDF0;
+    --ds-predicted-tint: #182A45;
+    --ds-scrim: rgba(0, 0, 0, 0.6);
+  }
+}

@@ -44,7 +44,7 @@ Map; the operator map and the attendee map show them with a legend.
 
 ```
 cd backend && pytest -q
-cd frontend && npm run typecheck && npm run build
+cd frontend && npm run build
 ```
 
 ## HUMAN

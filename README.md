@@ -206,7 +206,6 @@ curl -o heat.jpg "http://localhost:5000/api/video/snapshot/feed_6?overlay=true" 
 | `npm run dev` | Dev server with Turbopack on port 9002 |
 | `npm run build` | Static production build into `out/` |
 | `npm start` | Serve the built `out/` folder locally |
-| `npm run typecheck` | TypeScript check |
 | `npm run db:seed` | Seed guards, ambulances, medical staff and grievances |
 | `npm run db:seed:medical` / `db:seed:ambulances` | Seed a single collection |
 | `npm run create-admin -- …` | Create an Operator account (Auth user + `admin` doc) |
@@ -327,7 +326,7 @@ require the Blaze (pay-as-you-go) plan.
 
 ## Tech stack
 
-**Frontend:** Next.js 15 (App Router, static export) · TypeScript · Tailwind CSS · shadcn/ui (Radix) ·
+**Frontend:** Next.js 15 (App Router, static export) · JavaScript (React) · Tailwind CSS · shadcn/ui (Radix) ·
 Recharts · Google Maps · Firebase Auth & Firestore · Gemini API
 
 **Backend:** FastAPI · Uvicorn · DM-Count via ONNX Runtime · Hugging Face Hub · OpenCV · pandas / NumPy

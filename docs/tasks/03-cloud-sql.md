@@ -26,6 +26,11 @@ PostGIS with migrations, and store crowd readings so history survives restarts.
 
 ## Part B — database
 
+**If task 07a is merged**, `dristhi/db.py`, `dristhi/models.py` (organizations, events,
+attendees), Alembic and `docker-compose.yml` already exist. Reuse them: move their code into
+the new layout where needed, add the remaining tables in a **new** migration (the first one
+also creates the `postgis` extension), and skip the items below that are already done.
+
 1. Dependencies: `sqlalchemy>=2`, `psycopg[binary]`, `geoalchemy2`, `alembic`.
 2. `dristhi/db.py`: engine from `DATABASE_URL`, `SessionLocal`, `get_db` FastAPI dependency.
 3. `dristhi/models.py`: every table in the architecture data model, with PostGIS columns via
@@ -66,10 +71,22 @@ cd backend && alembic upgrade head && python scripts/seed_demo.py && pytest -q
 
 ## HUMAN
 
-1. `gcloud sql instances create dristhi-db --database-version=POSTGRES_16 --edition=enterprise --tier=db-f1-micro --region=asia-south1`
-2. Create database `dristhi` and a user; store the connection string as secret `DATABASE_URL`.
-3. Run migrations once against Cloud SQL (Cloud SQL Auth Proxy from a laptop).
-4. Redeploy with `--add-cloudsql-instances <project>:asia-south1:dristhi-db --set-secrets DATABASE_URL=DATABASE_URL:latest`.
-5. Stop the dev instance when idle: `gcloud sql instances patch dristhi-db --activation-policy=NEVER`.
+1. **Already done:** the instance was created through Firebase **SQL Connect** to get the
+   90-day no-cost trial (project *Dhristi AI Buildathon*, region `asia-south1`, service
+   `dristhi`). Find its instance ID under Google Cloud console → SQL. Do **not** create
+   another instance with `gcloud sql instances create`: that has no trial and is billed at
+   once.
+2. **Keep the trial:**
+   - Don't change instance settings: machine size, storage, private IP, high availability,
+     replicas, or stopping it with `--activation-policy`.
+   - Adding database users and running `CREATE EXTENSION postgis` are fine.
+   - The trial ends about 18 Feb 2027. After that, normal Cloud SQL pricing applies.
+   - Don't deploy a SQL Connect schema from the Firebase console; Alembic owns the tables.
+3. Under SQL → your instance → **Users**, add a built-in user for the backend. Store the
+   connection string as secret `DATABASE_URL`; never paste it into the chat.
+4. Run migrations once against Cloud SQL from a laptop with the Cloud SQL Auth Proxy:
+   `cloud-sql-proxy <project>:asia-south1:<instance-id> --port 5433`, then point
+   `DATABASE_URL` at `localhost:5433`. This needs `gcloud auth application-default login`.
+5. Redeploy with `--add-cloudsql-instances <project>:asia-south1:<instance-id> --set-secrets DATABASE_URL=DATABASE_URL:latest`.
 
 Keep `--max-instances 1`: camera threads would run twice on two instances.
