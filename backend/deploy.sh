@@ -59,6 +59,9 @@ gcloud config set project "$PROJECT_ID" >/dev/null
 echo "Building with Cloud Build (a few minutes)..."
 gcloud builds submit --tag "$IMAGE" .
 
+# INFERENCE_THREADS=1 keeps one of the 2 vCPUs free for API requests and video previews (the
+# crowd model otherwise fills both and requests time out with 429); DENSITY_MAX_SIDE=768 makes
+# each count about 2x faster (README: ~10.8% vs 7.9% error on street scenes).
 echo "Deploying to Cloud Run..."
 # One instance only: crowd counts live in process memory until task 03 moves them out.
 # --timeout 3600 keeps MJPEG camera streams open for up to an hour; --concurrency 1000 because
@@ -79,7 +82,7 @@ gcloud run deploy "$SERVICE_NAME" \
   --allow-unauthenticated \
   --add-cloudsql-instances "$SQL_INSTANCE" \
   --set-secrets "DATABASE_URL=${DB_SECRET}:latest" \
-  --set-env-vars "^@^ENV=production@FIREBASE_PROJECT_ID=${PROJECT_ID}@PUBLIC_APP_URL=${PUBLIC_APP_URL}@CORS_ORIGINS=${CORS_ORIGINS}"
+  --set-env-vars "^@^ENV=production@FIREBASE_PROJECT_ID=${PROJECT_ID}@PUBLIC_APP_URL=${PUBLIC_APP_URL}@CORS_ORIGINS=${CORS_ORIGINS}@INFERENCE_THREADS=1@DENSITY_MAX_SIDE=768"
 
 URL=$(gcloud run services describe "$SERVICE_NAME" --region "$REGION" --format="value(status.url)")
 echo
