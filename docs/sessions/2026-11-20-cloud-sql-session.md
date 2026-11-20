@@ -4,6 +4,21 @@ Summary of a long Claude Code session so the work can continue in a new session.
 
 > Read CLAUDE.md, docs/architecture.md and docs/sessions/2026-11-20-cloud-sql-session.md, then continue.
 
+## Update, 21 Nov 2026 night (supersedes "Deployed vs not" below)
+
+- **Everything is deployed.** Cloud Run revision 8 (image `ccb1aff` with `INFERENCE_THREADS=1`,
+  `DENSITY_MAX_SIDE=768`); Firebase Hosting has the snapshot-based Live cameras page. Old revisions
+  2–6 were deleted: they kept an instance each alive (leaked streams), held 22 of the ~14 usable
+  database connections and made report actions fail with 500.
+- **Load test** (5 min: 8 snapshots/s + dashboard + map polling against the live backend): 2,702
+  requests, all 200, median 120–140 ms, max 0.3 s, no 429.
+- **Trade-off:** counts refresh every ~2.5 min per camera, so the 15/30-min forecast appears about
+  15 min after a backend start. Restart the backend 30+ min before a demo. More headroom: 4 vCPU
+  with `INFERENCE_THREADS=2` for the demo window only.
+- **Main** already had the CORS/UTC fix as `b441ec1` (same change as `bf0d6e2`), so this branch was
+  rebased onto it.
+- **Teammates:** `docs/run-locally.md` (also as a PDF on the owner's Desktop) explains running locally.
+
 ## Where things stand (21 Nov 2026)
 
 - **Live:**
