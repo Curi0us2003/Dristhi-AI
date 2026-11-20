@@ -30,13 +30,14 @@ Rebuild every screen in the minimal style of the mockups, keeping behaviour and 
 
    | Screen | Route | Mockup |
    | --- | --- | --- |
-   | Login | `/login` | `Login.dc.html` |
+   | Login (operators only) | `/login` | `Login.dc.html` |
    | Operator dashboard | `/dashboard` | `Dashboard.dc.html` |
    | Alerts | `/alerts` | dashboard alert card style |
    | Live cameras | `/live-feed` | dashboard camera tile style |
    | Reports (grievances) | `/grievances` | dashboard card and table style |
    | Venue map | `/map-view` | `VenueSetup.dc.html` map styling |
    | Setup wizard | `/setup` | `VenueSetup.dc.html` |
+   | Attendee join (loading and errors) | `/join` | `AttendeeChat.dc.html` colours, plus the error layout of screen 4 in `AttendeePass.dc.html` |
    | Attendee chat | `/user/dashboard` | `AttendeeChat.dc.html` |
    | Attendee map | attendee map view | `AttendeeMap.dc.html` |
 

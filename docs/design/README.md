@@ -5,11 +5,12 @@ file with inline styles; open it in a browser or read its markup for exact value
 
 | Mockup | Screen |
 | --- | --- |
-| `mockups/Login.dc.html` | Login (operator / attendee) |
+| `mockups/Login.dc.html` | Operator login (attendees never see this page) |
 | `mockups/Dashboard.dc.html` | Operator overview dashboard |
 | `mockups/VenueSetup.dc.html` | Event setup step 3: drawing the venue map |
 | `mockups/AttendeeChat.dc.html` | Attendee chatbot with a report draft to review |
 | `mockups/AttendeeMap.dc.html` | Attendee nearest-facility map |
+| `mockups/AttendeePass.dc.html` | **Later (task 07):** personal pass with phone verification. During the demo phase (task 07a) the event QR opens the attendee app directly, with no sign-in screens. |
 
 The `.dc.html` files contain a small `<script type="text/x-dc">` block and `{{ }}` holes used by
 the design tool. Ignore those; use the markup and inline styles as the reference.
