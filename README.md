@@ -136,6 +136,11 @@ To use YOLO instead: `pip install ultralytics` and set `CROWD_MODEL=yolo`.
 
 ## Quick start (local)
 
+> **Team members:** follow [docs/run-locally.md](docs/run-locally.md). It sets up a new computer
+> (tools, access, `.env` files) and lists the five commands that start everything against the
+> team's shared Cloud SQL database, with local sign-in through the Firebase Auth emulator.
+> The steps below are the general reference.
+
 ### Prerequisites
 - **Python 3.10+**
 - **Node.js 20+**
