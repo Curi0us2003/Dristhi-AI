@@ -53,6 +53,31 @@ npm run dev                # terminal 2: http://localhost:9002 (backend on :5000
 
 The demo login (operator username, employee id, email, password) is in `frontend/scripts/seed-emulator.mjs`.
 
+### Two sites: admin and attendee
+
+One build (`frontend/out`) is deployed to two Firebase Hosting sites in the same project, so the
+apps have their own URLs while sharing the backend, Firestore and Auth (`frontend/firebase.json`
+targets; site mapping in `frontend/.firebaserc.example`, copy it to the git-ignored `.firebaserc`):
+
+| Target | Site (default URL) | Front page | Pages of the other app |
+| --- | --- | --- | --- |
+| `admin` | `dhristi-ai-buildathon` (`https://dhristi-ai-buildathon.web.app`) | `/` → `/login` | `/join`, `/user/*` redirect to `/login` |
+| `attendee` | `dhristi-ai-attendee` (`https://dhristi-ai-attendee.web.app`) | `/` → `/user/dashboard` | admin pages redirect to `/user/dashboard` |
+
+- Deploy: `npm run deploy:admin`, `npm run deploy:attendee`, or `npm run deploy:hosting` for both.
+- Admin pages link to the attendee app with `NEXT_PUBLIC_ATTENDEE_URL` (empty locally = same site).
+- The event QR points at the attendee site: set the backend's `PUBLIC_APP_URL` to its URL.
+- Locally nothing changes: `npm run dev` serves both on `localhost:9002` (`/login` and `/join`).
+  The Hosting emulator (firebase-tools 15.18 on the dev PC) did not apply any redirects or headers,
+  even for a one-rule test config, so check the redirects after the first deploy:
+  `curl -I https://dhristi-ai-attendee.web.app/login` should answer `302` to `/user/dashboard`, and
+  `curl -I https://dhristi-ai-buildathon.web.app/join` should answer `302` to `/login`.
+- **One-time HUMAN step:** create the attendee site in the Firebase console (Hosting → Add
+  another site, site ID `dhristi-ai-attendee`, or another free ID and update `.firebaserc` and
+  `.firebaserc.example`), then `copy .firebaserc.example .firebaserc` in `frontend/`.
+- The backend currently allows every origin (`allow_origins=["*"]`); when task 12 restricts CORS,
+  list both site URLs.
+
 Not in the hackathon build: map drawing, shifts, playbooks, broadcasts, gates, team roles, alerts
 inbox, event log page, post-event report, staff app.
 
