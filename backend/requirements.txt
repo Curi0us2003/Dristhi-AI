@@ -9,3 +9,9 @@ requests==2.32.3
 onnxruntime>=1.20,<2
 huggingface_hub>=0.26,<3
 # Optional YOLO fallback (CROWD_MODEL=yolo): pip install ultralytics
+# Database (task 07a): Cloud SQL Postgres via SQLAlchemy + Alembic
+sqlalchemy>=2,<3
+psycopg[binary]>=3.2,<4
+alembic>=1.13,<2
+qrcode[pil]>=7.4,<9
+python-dotenv>=1,<2
