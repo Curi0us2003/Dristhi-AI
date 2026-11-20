@@ -106,7 +106,8 @@ export async function joinEvent(slug) {
   if (res.ok) return keep(await res.json());
 
   const body = await res.json().catch(() => ({}));
-  const code = body?.detail?.code ?? body?.code ?? body?.detail;
+  // Backend errors are {"error": "<code>", "detail": "<text>"} (docs/architecture.md).
+  const code = body?.error ?? body?.detail?.code ?? body?.code ?? body?.detail;
   if (res.status === 404 && code === 'event_not_found') throw new JoinError('event_not_found');
   if (res.status === 503) {
     if (LOCAL_JOIN_ALLOWED) return keep(localAttendee(slug));

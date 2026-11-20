@@ -163,6 +163,25 @@ No Hugging Face account or token is needed, because the model is public.
 > and writes their true head counts to `videos/ground_truth.json`. For real cameras, set a feed's
 > `url` to an RTSP/HTTP stream or another video file and adjust its `max_capacity`.
 
+### Local database
+
+The attendee join API (`POST /api/events/{slug}/join`) needs Postgres. Without `DATABASE_URL`
+those routes return 503 and everything else works as before. Copy `backend/.env.example` to
+`backend/.env` and pick one:
+
+- **Docker:** `docker compose up -d db` from the repo root.
+- **Cloud SQL** (shared team database): `cloud-sql-proxy dhristi-ai-buildathon:asia-south1:dristhi-fdc --port 5433`
+  after `gcloud auth application-default login`.
+
+Then, in `backend/`:
+
+```bash
+alembic upgrade head            # create / update the tables
+python scripts/seed_demo.py     # live demo event with slug "demo"
+python scripts/make_event_qr.py --event demo --base-url http://localhost:9002   # QR → backend/out/
+pip install -r requirements-dev.txt && pytest -q   # DB tests need TEST_DATABASE_URL (a throwaway database)
+```
+
 ### 2. Frontend
 
 ```bash
