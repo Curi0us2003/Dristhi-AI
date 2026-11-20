@@ -9,15 +9,14 @@ import {
   deleteDoc,
   addDoc,
   serverTimestamp,
-  query,
-  where,
-  getDocs,
 } from 'firebase/firestore';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { PageHeader, Panel } from '@/components/admin/ui';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
   DropdownMenuSub,
   DropdownMenuSubTrigger,
@@ -25,22 +24,47 @@ import {
   DropdownMenuPortal,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import {
   MoreHorizontal,
-  User,
   Search,
   Stethoscope,
   MessageSquareWarning,
   RefreshCw,
-  AlertTriangle,
-  Image as ImageIcon,
   MapPin,
-  Ambulance,
   UserCheck,
+  CheckCircle2,
 } from 'lucide-react';
 import Image from 'next/image';
+import { useEvent } from '@/contexts/event-context';
+import { StatusBadge } from '@/components/admin/status-badge';
+import { assignStaffToGrievance, STAFF_KIND_LABEL, updateStaff, watchStaff } from '@/lib/admin-data';
+
+/**
+ * A report from an attendee (Firestore collection `grievances`). Other pages import this type.
+ *
+ * @typedef {object} Grievance
+ * @property {string} id
+ * @property {'Medical Attention' | 'Missing Person' | 'General Grievance'} type
+ * @property {string} details
+ * @property {{ seconds: number, nanoseconds: number }} submittedAt
+ * @property {'new' | 'resolved'} status
+ * @property {string} [submittedBy]
+ * @property {string} [attendeeId]     anonymous attendee id (new attendee app); notifications go here
+ * @property {string} [eventSlug]
+ * @property {'High' | 'Medium' | 'Low'} [urgency]
+ * @property {{ lat: number, lng: number, accuracy_m?: number }} [coords]
+ * @property {string} [email]          reporter's email on older reports, used for notifications
+ * @property {string} [personName]
+ * @property {string} [lastSeen]
+ * @property {string} [photoDataUri]
+ * @property {string} [location]
+ * @property {string} [actionTaken]
+ * @property {string} [assignedStaffId]
+ * @property {string} [assignedStaffName]
+ * @property {string} [assignedStaffKind]
+ * @property {{ seconds: number } | null} [assignedAt]
+ */
 
 /** Attendee reports are addressed by attendee id; older reports by email. */
 function notificationRecipient(g) {
@@ -55,88 +79,150 @@ const grievanceIcons = {
   'General Grievance': MessageSquareWarning,
 };
 
-const grievanceColors = {
-  'Medical Attention': 'border-red-500 bg-red-900/10',
-  'Missing Person': 'border-yellow-500 bg-yellow-900/10',
-  'General Grievance': 'border-blue-500 bg-blue-900/10',
+/** Tinted icon square per report type (design tokens). */
+const grievanceIconTone = {
+  'Medical Attention': 'bg-ds-critical-tint text-ds-critical',
+  'Missing Person': 'bg-ds-warning-tint text-ds-warning',
+  'General Grievance': 'bg-ds-predicted-tint text-ds-predicted',
 };
+
+/** Minutes allowed to assign someone, and to resolve, per report type. */
+const SLA = {
+  'Medical Attention': { assign: 2, resolve: 15 },
+  'Missing Person': { assign: 5, resolve: 30 },
+  'General Grievance': { assign: 15, resolve: 60 },
+};
+
+const MEDICAL_KINDS = new Set(['medic', 'doctor', 'ambulance']);
+
+function minutesSince(ts, now) {
+  if (!ts) return 0;
+  return Math.max(0, Math.floor((now - ts.seconds * 1000) / 60000));
+}
+
+/** Staff who can be sent: available, with the right kind first for the report type. */
+function candidatesFor(grievance, staff) {
+  const available = staff.filter((s) => s.status === 'available');
+  const preferMedical = grievance.type === 'Medical Attention';
+  return [...available].sort((a, b) => {
+    const rank = (s) =>
+      preferMedical ? (MEDICAL_KINDS.has(s.kind) ? 0 : 1) : MEDICAL_KINDS.has(s.kind) ? 1 : 0;
+    return rank(a) - rank(b) || a.name.localeCompare(b.name);
+  });
+}
+
+function SlaBadge({ grievance, now }) {
+  const sla = SLA[grievance.type];
+  const open = minutesSince(grievance.submittedAt, now);
+  if (!grievance.assignedStaffId) {
+    if (open > sla.assign)
+      return <StatusBadge tone="critical">Unassigned · overdue {open - sla.assign}m</StatusBadge>;
+    return open === sla.assign ? (
+      <StatusBadge tone="warning">Unassigned · assign now</StatusBadge>
+    ) : (
+      <StatusBadge tone="warning">Unassigned · assign within {sla.assign - open}m</StatusBadge>
+    );
+  }
+  return open > sla.resolve ? (
+    <StatusBadge tone="critical">Assigned · resolve overdue {open - sla.resolve}m</StatusBadge>
+  ) : (
+    <StatusBadge tone="normal">Assigned · on time</StatusBadge>
+  );
+}
 
 export default function GrievancesPage() {
   const [grievances, setGrievances] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [ambulances, setAmbulances] = useState([]);
-  const [medicalStaff, setMedicalStaff] = useState([]);
+  const [staff, setStaff] = useState([]);
+  const [now, setNow] = useState(() => Date.now());
+  const { event } = useEvent();
   const { toast } = useToast();
 
   useEffect(() => {
-    // Fetch Grievances
     const grievancesRef = collection(db, 'grievances');
-    const grievancesUnsubscribe = onSnapshot(grievancesRef, (snapshot) => {
+    return onSnapshot(grievancesRef, (snapshot) => {
       const grievancesData = snapshot.docs
         .map((doc) => ({ id: doc.id, ...doc.data() }))
         .filter((g) => g.status === 'new')
-        .sort((a, b) => b.submittedAt.seconds - a.submittedAt.seconds);
+        .sort((a, b) => (b.submittedAt?.seconds ?? 0) - (a.submittedAt?.seconds ?? 0));
       setGrievances(grievancesData);
       setLoading(false);
     });
-
-    // Fetch Ambulances
-    const ambulancesRef = collection(db, 'ambulances');
-    const ambulancesUnsubscribe = onSnapshot(ambulancesRef, (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      setAmbulances(data);
-    });
-
-    // Fetch Medical Staff
-    const medicalStaffRef = collection(db, 'medical_staff');
-    const medicalStaffUnsubscribe = onSnapshot(medicalStaffRef, (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      setMedicalStaff(data);
-    });
-
-    return () => {
-      grievancesUnsubscribe();
-      ambulancesUnsubscribe();
-      medicalStaffUnsubscribe();
-    };
   }, []);
+
+  useEffect(() => {
+    if (!event) return;
+    return watchStaff(event.id, setStaff);
+  }, [event]);
+
+  // Refresh the timers.
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(t);
+  }, []);
+
+  const notify = (grievance, message) => {
+    const recipient = notificationRecipient(grievance);
+    if (!recipient) return Promise.resolve();
+    return addDoc(collection(db, 'notifications'), {
+      ...recipient,
+      message,
+      createdAt: serverTimestamp(),
+      read: false,
+    });
+  };
+
+  const handleAssign = async (grievance, member) => {
+    if (!event) return;
+    try {
+      await assignStaffToGrievance(
+        event.id,
+        member,
+        grievance.id,
+        `${grievance.type}: ${grievance.details.slice(0, 80)}`,
+      );
+      await notify(
+        grievance,
+        `${STAFF_KIND_LABEL[member.kind]} ${member.name} is on the way for your "${grievance.type}" report.`,
+      );
+      toast({
+        title: `${member.name} sent`,
+        description: `${grievance.type}${grievance.location ? ` at ${grievance.location}` : ''}`,
+      });
+    } catch (error) {
+      console.error('Error assigning staff:', error);
+      toast({
+        title: 'Error',
+        description: 'Could not assign staff. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const handleResolve = async (grievance) => {
     const grievanceRef = doc(db, 'grievances', grievance.id);
-    const notificationsRef = collection(db, 'notifications');
-    const recipient = notificationRecipient(grievance);
-
-    if (!recipient) {
-      toast({ title: 'Error', description: 'This report has no sender to notify.', variant: 'destructive' });
-      return;
-    }
-
     try {
-      let message = `Your grievance regarding "${grievance.type}" has been acknowledged and resolved.`;
+      let message = `Your grievance regarding "${grievance.type}" has been resolved.`;
       if (grievance.type === 'Missing Person') {
-        message = `Your report for the missing person "${grievance.personName}" has been acknowledged. Our team is actively looking into it.`;
+        message = `Your report for the missing person "${grievance.personName}" has been closed by the control room.`;
+      }
+      await notify(grievance, message);
+
+      // Free the staff member who handled it.
+      if (grievance.assignedStaffId && staff.some((s) => s.id === grievance.assignedStaffId)) {
+        await updateStaff(grievance.assignedStaffId, { status: 'available' });
       }
 
-      await addDoc(notificationsRef, {
-        ...recipient,
-        message: message,
-        createdAt: serverTimestamp(),
-        read: false,
-      });
+      const actionTaken = grievance.assignedStaffName
+        ? `Handled by ${grievance.assignedStaffName}`
+        : 'Resolved by control room';
 
       if (grievance.type === 'Missing Person') {
         await deleteDoc(grievanceRef);
-        toast({
-          title: 'Missing Person Report Resolved',
-          description: 'The report has been removed from the active list.',
-        });
       } else {
-        await updateDoc(grievanceRef, { status: 'resolved', actionTaken: 'Acknowledged by Admin' });
-        toast({
-          title: 'Grievance Resolved',
-          description: 'The grievance has been resolved and the user has been notified.',
-        });
+        await updateDoc(grievanceRef, { status: 'resolved', actionTaken, resolvedAt: serverTimestamp() });
       }
+      toast({ title: 'Report resolved', description: 'The person who reported it has been notified.' });
     } catch (error) {
       console.error('Error resolving grievance:', error);
       toast({
@@ -147,199 +233,172 @@ export default function GrievancesPage() {
     }
   };
 
-  const handleMedicalAction = async (grievance, action) => {
-    const recipient = notificationRecipient(grievance);
-    if (!grievance.id || !recipient) {
-      toast({ title: 'Error', description: 'Report ID or sender is missing.', variant: 'destructive' });
-      return;
-    }
-
-    const grievanceRef = doc(db, 'grievances', grievance.id);
-    const notificationsRef = collection(db, 'notifications');
-
-    try {
-      await updateDoc(grievanceRef, {
-        status: 'resolved',
-        actionTaken: action,
-      });
-
-      await addDoc(notificationsRef, {
-        ...recipient,
-        message: `Your request for medical attention at ${grievance.location || 'the specified location'} has been addressed. Action taken: ${action}.`,
-        createdAt: serverTimestamp(),
-        read: false,
-      });
-
-      toast({
-        title: 'Action Taken',
-        description: `Action "${action}" has been logged and the user has been notified.`,
-      });
-    } catch (error) {
-      console.error('Error taking medical action:', error);
-      toast({
-        title: 'Error',
-        description: 'Could not process the action. Please try again.',
-        variant: 'destructive',
-      });
-    }
-  };
-
   const formatTimestamp = (timestamp) => {
-    const date = new Date(timestamp.seconds * 1000);
-    const now = new Date();
-    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-
-    if (diffInMinutes < 1) return 'Just now';
+    if (!timestamp) return 'just now';
+    const diffInMinutes = minutesSince(timestamp, now);
+    if (diffInMinutes < 1) return 'just now';
     if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
     if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
-    return date.toLocaleDateString();
+    return new Date(timestamp.seconds * 1000).toLocaleDateString();
   };
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        <h2 className="text-2xl font-bold tracking-tight">Grievances</h2>
-        <div className="flex items-center justify-center h-64">
-          <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+      <>
+        <PageHeader title="Reports" />
+        <div className="flex h-64 items-center justify-center">
+          <RefreshCw className="h-8 w-8 animate-spin text-ds-muted" />
         </div>
-      </div>
+      </>
     );
   }
 
-  const availableAmbulances = ambulances.filter((a) => a.isAvailable);
-  const availableStaff = medicalStaff.filter((s) => s.status === 'available');
+  const unassigned = grievances.filter((g) => !g.assignedStaffId).length;
+  const overdue = grievances.filter((g) => {
+    const sla = SLA[g.type];
+    const open = minutesSince(g.submittedAt, now);
+    return g.assignedStaffId ? open > sla.resolve : open > sla.assign;
+  }).length;
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-2xl font-bold tracking-tight">Grievances</h2>
+    <>
+      <PageHeader title="Reports" meta="Medical, missing person and other reports from attendees, newest first.">
+        <div className="flex flex-wrap gap-2">
+          <StatusBadge tone="muted">{grievances.length} open</StatusBadge>
+          <StatusBadge tone={unassigned ? 'warning' : 'normal'}>{unassigned} unassigned</StatusBadge>
+          <StatusBadge tone={overdue ? 'critical' : 'normal'}>{overdue} overdue</StatusBadge>
+        </div>
+      </PageHeader>
+      {!event && (
+        <p className="text-sm text-ds-muted">Create an event and its staff roster in Setup to send staff to reports.</p>
+      )}
       {grievances.length === 0 ? (
-        <Card>
-          <CardContent className="p-8 text-center">
-            <div className="flex flex-col items-center gap-2">
-              <MessageSquareWarning className="h-12 w-12 text-muted-foreground" />
-              <h3 className="text-lg font-medium">No Open Grievances</h3>
-              <p className="text-sm text-muted-foreground">
-                All user-submitted grievances have been resolved.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        <Panel className="flex flex-col items-center gap-2 py-10 text-center">
+          <MessageSquareWarning className="mx-auto h-10 w-10 text-ds-muted" strokeWidth={1.75} aria-hidden />
+          <h2 className="text-base font-semibold">No open reports</h2>
+          <p className="text-sm text-ds-muted">Every report from attendees has been resolved.</p>
+        </Panel>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
           {grievances.map((grievance) => {
-            const Icon = grievanceIcons[grievance.type];
+            const Icon = grievanceIcons[grievance.type] ?? MessageSquareWarning;
+            const candidates = candidatesFor(grievance, staff);
             return (
-              <Card key={grievance.id} className={grievanceColors[grievance.type]}>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Icon className="h-5 w-5" />
-                      {grievance.type}
-                    </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {grievance.type === 'Medical Attention' ? (
-                          <>
-                            <DropdownMenuSub>
-                              <DropdownMenuSubTrigger disabled={availableAmbulances.length === 0}>
-                                <Ambulance className="mr-2 h-4 w-4" />
-                                Deploy Ambulance
-                              </DropdownMenuSubTrigger>
-                              <DropdownMenuPortal>
-                                <DropdownMenuSubContent>
-                                  {availableAmbulances.map((amb) => (
-                                    <DropdownMenuItem
-                                      key={amb.id}
-                                      onClick={() =>
-                                        handleMedicalAction(
-                                          grievance,
-                                          `Ambulance ${amb.ambulanceNumber} deployed`,
-                                        )
-                                      }
-                                    >
-                                      {amb.ambulanceNumber}
-                                    </DropdownMenuItem>
-                                  ))}
-                                </DropdownMenuSubContent>
-                              </DropdownMenuPortal>
-                            </DropdownMenuSub>
-                            <DropdownMenuSub>
-                              <DropdownMenuSubTrigger disabled={availableStaff.length === 0}>
-                                <UserCheck className="mr-2 h-4 w-4" />
-                                Send Medical Staff
-                              </DropdownMenuSubTrigger>
-                              <DropdownMenuPortal>
-                                <DropdownMenuSubContent>
-                                  {availableStaff.map((staff) => (
-                                    <DropdownMenuItem
-                                      key={staff.id}
-                                      onClick={() =>
-                                        handleMedicalAction(grievance, `Medical staff ${staff.name} sent`)
-                                      }
-                                    >
-                                      {staff.name}
-                                    </DropdownMenuItem>
-                                  ))}
-                                </DropdownMenuSubContent>
-                              </DropdownMenuPortal>
-                            </DropdownMenuSub>
-                          </>
-                        ) : (
-                          <DropdownMenuItem onClick={() => handleResolve(grievance)}>
-                            Acknowledge & Resolve
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </CardTitle>
-                  <CardDescription>
-                    Submitted {formatTimestamp(grievance.submittedAt)} by{' '}
-                    {grievance.submittedBy || 'Anonymous'}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex gap-4">
-                    {grievance.photoDataUri && (
-                      <div className="relative h-16 w-16 flex-shrink-0 rounded-md overflow-hidden">
-                        <Image
-                          src={grievance.photoDataUri}
-                          alt={grievance.personName || 'Missing person'}
-                          layout="fill"
-                          objectFit="cover"
-                        />
-                      </div>
-                    )}
-                    <div className="flex-grow space-y-2">
-                      {grievance.type === 'Missing Person' && (
-                        <div className="space-y-2 text-sm">
-                          <p>
-                            <strong>Name:</strong> {grievance.personName}
-                          </p>
-                          <p>
-                            <strong>Last Seen:</strong> {grievance.lastSeen}
-                          </p>
-                        </div>
-                      )}
-                      {grievance.type === 'Medical Attention' && grievance.location && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <MapPin className="h-4 w-4" />
-                          <strong>Location:</strong> {grievance.location}
-                        </div>
-                      )}
-                      <p className="text-sm text-muted-foreground">{grievance.details}</p>
+              <article
+                key={grievance.id}
+                className="flex min-w-0 flex-col gap-3 rounded-2xl border border-ds-border bg-ds-surface p-5"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] ${grievanceIconTone[grievance.type] ?? 'bg-ds-divider text-ds-ink-2'}`}
+                    >
+                      <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
+                    </span>
+                    <div className="min-w-0">
+                      <h2 className="text-base font-semibold leading-tight">{grievance.type}</h2>
+                      <p className="text-[13px] text-ds-muted">
+                        {formatTimestamp(grievance.submittedAt)} · {grievance.submittedBy || 'Anonymous'}
+                      </p>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="shrink-0"
+                        aria-label={`Actions for ${grievance.type} report`}
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuSub>
+                        <DropdownMenuSubTrigger disabled={candidates.length === 0}>
+                          <UserCheck className="mr-2 h-4 w-4" />
+                          {grievance.assignedStaffId ? 'Send someone else' : 'Send staff'}
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuPortal>
+                          <DropdownMenuSubContent className="max-h-80 overflow-y-auto">
+                            <DropdownMenuLabel>Available staff</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            {candidates.map((member) => (
+                              <DropdownMenuItem key={member.id} onClick={() => handleAssign(grievance, member)}>
+                                {member.name}
+                                <span className="ml-2 text-xs text-muted-foreground">
+                                  {STAFF_KIND_LABEL[member.kind]}
+                                </span>
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuSubContent>
+                        </DropdownMenuPortal>
+                      </DropdownMenuSub>
+                      <DropdownMenuItem onClick={() => handleResolve(grievance)}>
+                        <CheckCircle2 className="mr-2 h-4 w-4" />
+                        Mark resolved
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <SlaBadge grievance={grievance} now={now} />
+                  {grievance.urgency && (
+                    <StatusBadge
+                      tone={
+                        grievance.urgency === 'High' ? 'critical' : grievance.urgency === 'Medium' ? 'warning' : 'muted'
+                      }
+                    >
+                      {grievance.urgency} urgency
+                    </StatusBadge>
+                  )}
+                  {grievance.assignedStaffName && (
+                    <StatusBadge tone="predicted">
+                      {grievance.assignedStaffName}
+                      {grievance.assignedAt ? ` · ${minutesSince(grievance.assignedAt, now)}m ago` : ''}
+                    </StatusBadge>
+                  )}
+                </div>
+
+                <div className="flex gap-4 border-t border-ds-divider pt-3">
+                  {grievance.photoDataUri && (
+                    <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-[10px]">
+                      <Image
+                        src={grievance.photoDataUri}
+                        alt={grievance.personName || 'Missing person'}
+                        layout="fill"
+                        objectFit="cover"
+                      />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-grow space-y-1.5 text-sm">
+                    {grievance.type === 'Missing Person' && (
+                      <>
+                        <p>
+                          <span className="text-ds-muted">Name </span>
+                          <span className="font-medium">{grievance.personName}</span>
+                        </p>
+                        <p>
+                          <span className="text-ds-muted">Last seen </span>
+                          <span className="font-medium">{grievance.lastSeen}</span>
+                        </p>
+                      </>
+                    )}
+                    {grievance.location && (
+                      <p className="flex items-center gap-1.5">
+                        <MapPin className="h-4 w-4 shrink-0 text-ds-muted" strokeWidth={1.75} aria-hidden />
+                        <span className="font-medium">{grievance.location}</span>
+                      </p>
+                    )}
+                    <p className="text-ds-ink-2">{grievance.details}</p>
+                  </div>
+                </div>
+              </article>
             );
           })}
         </div>
       )}
-    </div>
+    </>
   );
 }

@@ -1,0 +1,54 @@
+# Admin app data (hackathon build). See docs/admin-app.md, section "Hackathon build".
+# Grievances stay in Firestore; Dispatch.grievanceId holds the Firestore document id.
+
+type Event @table {
+  name: String!
+  venue: String!
+  city: String
+  startsAt: Timestamp
+  endsAt: Timestamp
+  "draft | live | ended"
+  status: String! @default(value: "draft")
+  "Zone density at or above this percent shows Warning."
+  warningPct: Int! @default(value: 70)
+  "Zone density at or above this percent shows Critical."
+  criticalPct: Int! @default(value: 90)
+  "Target number of people one guard can watch."
+  peoplePerGuard: Int! @default(value: 100)
+  createdBy: String! @default(expr: "auth.uid")
+  createdAt: Timestamp! @default(expr: "request.time")
+}
+
+type Zone @table {
+  event: Event!
+  name: String!
+  capacity: Int!
+  minGuards: Int! @default(value: 1)
+  "Camera id from the backend (feeds.json key, e.g. feed_1)."
+  feedId: String
+  createdAt: Timestamp! @default(expr: "request.time")
+}
+
+type Staff @table(name: "staff", singular: "staffMember", plural: "staffMembers") {
+  event: Event!
+  name: String!
+  phone: String
+  "guard | supervisor | medic | doctor | ambulance | volunteer"
+  kind: String!
+  "available | dispatched | on_scene | off_duty"
+  status: String! @default(value: "available")
+  zone: Zone
+  createdAt: Timestamp! @default(expr: "request.time")
+}
+
+type Dispatch @table {
+  event: Event!
+  staff: Staff!
+  fromZone: Zone
+  toZone: Zone
+  "Firestore grievance id when the dispatch answers a report."
+  grievanceId: String
+  reason: String!
+  createdBy: String! @default(expr: "auth.uid")
+  createdAt: Timestamp! @default(expr: "request.time")
+}

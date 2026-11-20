@@ -12,7 +12,9 @@
     "db:seed": "node src/scripts/seed-all.js",
     "db:seed:medical": "node src/scripts/seed-medical-staff.js",
     "db:seed:ambulances": "node src/scripts/seed-ambulances.js",
-    "create-admin": "node src/scripts/create-admin.js"
+    "create-admin": "node src/scripts/create-admin.js",
+    "emulators": "firebase emulators:start --only auth,firestore --project demo-dristhi",
+    "seed:emulator": "node scripts/seed-emulator.mjs"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.3",

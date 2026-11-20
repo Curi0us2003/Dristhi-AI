@@ -3,26 +3,28 @@
 @tailwind components;
 
 @layer base {
+  /* Light shadcn variables mapped onto the design tokens (--ds-* below, as HSL), so cards, buttons,
+     inputs, selects and tables on operator screens match the attendee app. */
   :root {
-    --background: 240 60% 97%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 262.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 262 91% 51%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 262.2 83.2% 53.3%;
+    --background: 75 17% 95%;        /* ds-ground */
+    --foreground: 212 39% 13%;       /* ds-ink */
+    --card: 60 25% 98%;              /* ds-surface */
+    --card-foreground: 212 39% 13%;
+    --popover: 60 25% 98%;
+    --popover-foreground: 212 39% 13%;
+    --primary: 171 80% 27%;          /* ds-accent */
+    --primary-foreground: 60 25% 98%;
+    --secondary: 90 16% 93%;         /* ds-divider */
+    --secondary-foreground: 212 39% 13%;
+    --muted: 90 16% 93%;
+    --muted-foreground: 215 13% 41%; /* ds-muted */
+    --accent: 159 33% 92%;           /* ds-accent-tint */
+    --accent-foreground: 171 79% 21%; /* ds-accent-ink */
+    --destructive: 15 79% 34%;       /* ds-critical */
+    --destructive-foreground: 60 25% 98%;
+    --border: 90 11% 89%;            /* ds-border */
+    --input: 105 10% 84%;            /* ds-input-border */
+    --ring: 171 80% 27%;
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
