@@ -53,6 +53,28 @@ export async function api(path, options = {}) {
   return result;
 }
 
+/**
+ * Operator request for a file (e.g. an image) with the admin's token. Returns a Blob. Use it where
+ * an <img src> can't be used directly, because the route needs the Authorization header.
+ */
+export async function apiBlob(path) {
+  await auth.authStateReady();
+  const user = auth.currentUser;
+  if (!user) throw new ApiError(401, 'not_signed_in', 'Sign in first.');
+  const token = await user.getIdToken();
+  let res;
+  try {
+    res = await fetch(`${BACKEND_URL}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+  } catch {
+    throw new ApiError(0, 'network', 'Cannot reach the server. Check your connection.');
+  }
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new ApiError(res.status, data?.error ?? `http_${res.status}`, typeof data?.detail === 'string' ? data.detail : undefined);
+  }
+  return res.blob();
+}
+
 /** Attendee request, identified by the device id the browser joined with. */
 export async function attendeeApi(path, options = {}) {
   const result = await request(path, { ...options, headers: { 'X-Device-Id': getDeviceId() } });

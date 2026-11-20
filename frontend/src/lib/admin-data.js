@@ -3,7 +3,7 @@
  * Cloud SQL (backend/dristhi/routers/admin.py). Every call is scoped to the signed-in admin's
  * organization by the backend.
  */
-import { api, toGrievance, ts, watch } from '@/lib/api';
+import { api, apiBlob, toGrievance, ts, watch } from '@/lib/api';
 
 /**
  * Shapes the screens use (camelCase). The backend sends snake_case; the mappers below convert.
@@ -24,6 +24,7 @@ import { api, toGrievance, ts, watch } from '@/lib/api';
  * @property {number} criticalPct   zone density % that shows Critical
  * @property {number} peoplePerGuard
  * @property {string} slug         used in the attendee QR link /join?e=<slug>
+ * @property {string} joinUrl      what the attendee QR code opens (backend PUBLIC_APP_URL + /join?e=<slug>)
  * @property {number | null} lat    venue pin
  * @property {number | null} lng
  *
@@ -121,6 +122,7 @@ function toEvent(e) {
     attendeeCount: e.attendee_count,
     lat: e.lat,
     lng: e.lng,
+    joinUrl: e.join_url ?? '',
   };
 }
 
@@ -339,4 +341,11 @@ export function rosterViews(staff, zones) {
     }));
 
   return { guards, ambulances, medicalStaff };
+}
+
+// ── Attendee QR code ─────────────────────────────────────────────
+
+/** PNG of the event's attendee QR code (opens /join?e=<slug>), as a Blob. */
+export function fetchEventQr(eventId) {
+  return apiBlob(`${ev(eventId)}/qr.png`);
 }

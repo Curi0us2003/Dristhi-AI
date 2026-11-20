@@ -141,3 +141,24 @@ def test_attendee_report_assign_resolve_and_notify(api, admin, session, org):
 
     sent = api.post(f"/api/events/{event.id}/notifications", json={"attendee_id": str(attendee.id), "message": "Found her"})
     assert sent.status_code == 201
+
+
+def test_event_qr_code(api, admin, session):
+    ev = api.post("/api/events", json={"name": "KTPO Expo"}).json()
+    assert ev["join_url"].endswith(f"/join?e={ev['slug']}")
+
+    r = api.get(f"/api/events/{ev['id']}/qr.png")
+    assert r.status_code == 200 and r.headers["content-type"] == "image/png"
+    assert r.content[:8] == b"\x89PNG\r\n\x1a\n"
+    assert f"event-{ev['slug']}-qr.png" in r.headers["content-disposition"]
+
+    # Another organization's event is not found, and there is no QR without a token.
+    other = Organization(name="Org Q")
+    session.add(other)
+    session.commit()
+    hidden = Event(organization_id=other.id, slug="hidden-qr", name="Hidden", status="live")
+    session.add(hidden)
+    session.commit()
+    assert api.get(f"/api/events/{hidden.id}/qr.png").status_code == 404
+    api.app.dependency_overrides.clear()
+    assert api.get(f"/api/events/{ev['id']}/qr.png").status_code == 401
