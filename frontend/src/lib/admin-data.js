@@ -3,7 +3,8 @@
  * Cloud SQL (backend/dristhi/routers/admin.py). Every call is scoped to the signed-in admin's
  * organization by the backend.
  */
-import { api, toGrievance, ts, watch } from '@/lib/api';
+import { api, apiBlob, toGrievance, ts, watch } from '@/lib/api';
+import { parseVenue } from '@/lib/venue';
 
 /**
  * Shapes the screens use (camelCase). The backend sends snake_case; the mappers below convert.
@@ -24,6 +25,7 @@ import { api, toGrievance, ts, watch } from '@/lib/api';
  * @property {number} criticalPct   zone density % that shows Critical
  * @property {number} peoplePerGuard
  * @property {string} slug         used in the attendee QR link /join?e=<slug>
+ * @property {string} joinUrl      what the attendee QR code opens (backend PUBLIC_APP_URL + /join?e=<slug>)
  * @property {number | null} lat    venue pin
  * @property {number | null} lng
  *
@@ -121,6 +123,7 @@ function toEvent(e) {
     attendeeCount: e.attendee_count,
     lat: e.lat,
     lng: e.lng,
+    joinUrl: e.join_url ?? '',
   };
 }
 
@@ -192,6 +195,11 @@ export function watchDispatches(eventId, cb) {
 export function watchGrievances(eventId, cb, status) {
   const q = status ? `?status=${status}` : '';
   return watch(async () => (await api(`${ev(eventId)}/grievances${q}`)).map(toGrievance), cb);
+}
+
+/** Zones and facilities of the event from Cloud SQL (same data as the attendee map, any status). */
+export async function fetchAdminVenueMap(eventId) {
+  return parseVenue(await api(`${ev(eventId)}/venue-map`));
 }
 
 // ── Events ───────────────────────────────────────────────────────
@@ -298,7 +306,7 @@ export const GUARD_KINDS = ['guard', 'supervisor'];
 export const MEDICAL_KINDS = ['medic', 'doctor'];
 
 /**
- * The Dashboard summary and the autonomous agent were written for the old `guards`,
+ * The Dashboard summary was written for the old `guards`,
  * `ambulances` and `medical_staff` collections. This builds the same shapes from the event's
  * staff roster so those screens read one source of truth. `id` is always the staff doc id.
  *
@@ -339,4 +347,11 @@ export function rosterViews(staff, zones) {
     }));
 
   return { guards, ambulances, medicalStaff };
+}
+
+// ── Attendee QR code ─────────────────────────────────────────────
+
+/** PNG of the event's attendee QR code (opens /join?e=<slug>), as a Blob. */
+export function fetchEventQr(eventId) {
+  return apiBlob(`${ev(eventId)}/qr.png`);
 }

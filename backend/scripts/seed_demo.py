@@ -13,7 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from sqlalchemy import delete, func, select, text  # noqa: E402
+from sqlalchemy import delete, func, select, text, update  # noqa: E402
 
 from dristhi import db  # noqa: E402
 from dristhi.models import Event, Organization, Poi, Zone  # noqa: E402
@@ -61,17 +61,30 @@ def _geom(feature) -> object:
 def load_venue(session, event: Event, path: Path = VENUE_FILE, reset: bool = False) -> int:
     """Load zones and facilities for `event` from a GeoJSON file. Returns the number of zones added
     (0 when the event already has zones and `reset` is False)."""
+    features = json.loads(path.read_text(encoding="utf-8"))["features"]
+    zones = [f for f in features if f["properties"]["type"] == "zone"]
+
     has_zones = session.scalar(select(func.count()).select_from(Zone).where(Zone.event_id == event.id))
     if has_zones and not reset:
+        # Keep the zones (staff are posted in them); only link cameras that are still missing.
+        for f in zones:
+            p = f["properties"]
+            if p.get("feed_id"):
+                session.execute(
+                    update(Zone)
+                    .where(Zone.event_id == event.id, Zone.name == p["name"], Zone.feed_id.is_(None))
+                    .values(feed_id=p["feed_id"])
+                )
+        session.commit()
         return 0
     session.execute(delete(Poi).where(Poi.event_id == event.id))
     session.execute(delete(Zone).where(Zone.event_id == event.id))
 
-    features = json.loads(path.read_text(encoding="utf-8"))["features"]
-    zones = [f for f in features if f["properties"]["type"] == "zone"]
     for f in zones:
         p = f["properties"]
-        session.add(Zone(event_id=event.id, name=p["name"], capacity=p["capacity"], polygon=_geom(f)))
+        session.add(Zone(
+            event_id=event.id, name=p["name"], capacity=p["capacity"], feed_id=p.get("feed_id"), polygon=_geom(f)
+        ))
     for f in features:
         p = f["properties"]
         if p["type"] == "poi":

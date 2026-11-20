@@ -1,0 +1,17 @@
+# Files `gcloud builds submit` does NOT upload (deploy.sh). Keeps secrets and the local
+# virtualenv out of the Cloud Build bucket; .dockerignore separately keeps them out of the image.
+.gcloudignore
+.git
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+tests/
+out/
+videos/
+deploy.sh
+deploy.ps1

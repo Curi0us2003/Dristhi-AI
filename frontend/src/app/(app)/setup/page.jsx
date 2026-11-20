@@ -8,6 +8,7 @@ import { PageHeader } from '@/components/admin/ui';
 import EventForm from '@/components/admin/setup/event-form';
 import ZonesEditor from '@/components/admin/setup/zones-editor';
 import StaffRoster from '@/components/admin/setup/staff-roster';
+import EventQrCard from '@/components/admin/setup/event-qr-card';
 import { watchStaff, watchZones } from '@/lib/admin-data';
 
 const STEPS = [
@@ -99,6 +100,7 @@ export default function SetupPage() {
         disabled={(id) => id !== 'event' && !event}
       />
       {current === 'event' && <EventForm />}
+      {event && current === 'event' && <EventQrCard event={event} />}
       {event && current === 'zones' && <ZonesEditor event={event} />}
       {event && current === 'staff' && <StaffRoster event={event} />}
     </>

@@ -1,7 +1,7 @@
 {
   "feed_1": {
     "name": "Main Entrance",
-    "url": "videos/main_entrance.mp4",
+    "url": "https://res.cloudinary.com/dxs8supta/video/upload/main_entrance.mp4",
     "location": {
       "lat": 12.979452785667108,
       "lng": 77.719926928982
@@ -11,7 +11,7 @@
   },
   "feed_2": {
     "name": "Mall Stage",
-    "url": "videos/mall_stage.mp4",
+    "url": "https://res.cloudinary.com/dxs8supta/video/upload/mall_stage.mp4",
     "location": {
       "lat": 12.97947604346141,
       "lng": 77.71969869509633
@@ -21,7 +21,7 @@
   },
   "feed_3": {
     "name": "Red Street Road",
-    "url": "videos/red_street_road.mp4",
+    "url": "https://res.cloudinary.com/dxs8supta/video/upload/red_street_road.mp4",
     "location": {
       "lat": 12.979876811228333,
       "lng": 77.71900686661412
@@ -31,7 +31,7 @@
   },
   "feed_4": {
     "name": "Exit Gate",
-    "url": "videos/exit_gate.mp4",
+    "url": "https://res.cloudinary.com/dxs8supta/video/upload/exit_gate.mp4",
     "location": {
       "lat": 12.979869862552484,
       "lng": 77.71948285262408
@@ -41,7 +41,7 @@
   },
   "feed_5": {
     "name": "Subway",
-    "url": "videos/subway.mp4",
+    "url": "https://res.cloudinary.com/dxs8supta/video/upload/subway.mp4",
     "location": {
       "lat": 12.979517216997738,
       "lng": 77.71922792378729
@@ -51,7 +51,7 @@
   },
   "feed_6": {
     "name": "Market",
-    "url": "videos/market.mp4",
+    "url": "https://res.cloudinary.com/dxs8supta/video/upload/market.mp4",
     "location": {
       "lat": 12.979468576192303,
       "lng": 77.71913343967294
@@ -61,7 +61,7 @@
   },
   "feed_7": {
     "name": "Cross Road",
-    "url": "videos/cross_road.mp4",
+    "url": "https://res.cloudinary.com/dxs8supta/video/upload/cross_road.mp4",
     "location": {
       "lat": 12.98013912359981,
       "lng": 77.71894803688257
@@ -71,7 +71,7 @@
   },
   "feed_8": {
     "name": "Lobby",
-    "url": "videos/lobby.mp4",
+    "url": "https://res.cloudinary.com/dxs8supta/video/upload/lobby.mp4",
     "location": {
       "lat": 12.979699619933339,
       "lng": 77.71896586407394
