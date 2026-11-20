@@ -3,12 +3,11 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, Loader2, LogIn, Shield, ArrowLeft } from 'lucide-react';
+import { Activity, ArrowLeft, BellRing, Eye, EyeOff, Loader2, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Icons } from '@/components/icons';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/auth-context';
 import { getAuthErrorMessage } from '@/lib/auth-service';
@@ -58,7 +57,7 @@ export default function LoginPage() {
 
   if (authLoading || user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="flex min-h-screen items-center justify-center bg-ds-ground">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -129,145 +128,59 @@ export default function LoginPage() {
   const isBusy = loading || googleLoading;
 
   return (
-    <main className="relative flex min-h-screen overflow-hidden bg-background">
-      {/* Cybernetic Dynamic Background */}
-      <div className="absolute inset-0 bg-grid-pattern pointer-events-none" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-blue-900/20 via-background to-background" />
+    <main className="flex min-h-screen bg-ds-ground text-ds-ink">
+      {/* Left column: brand and what the console does. Plain surface, no imagery or motion. */}
+      <aside className="hidden w-[42%] max-w-xl flex-col justify-between border-r border-ds-border bg-ds-surface p-12 lg:flex">
+        <Brand />
 
-      {/* Interactive drifting nebulae */}
-      <div
-        className="pointer-events-none absolute -left-48 top-1/4 h-[500px] w-[500px] rounded-full bg-blue-600/10 blur-[120px] transition-all [transition-duration:8s]"
-        style={{ animation: 'subtle-drift 20s infinite ease-in-out' }}
-      />
-      <div
-        className="pointer-events-none absolute right-10 bottom-10 h-[400px] w-[400px] rounded-full bg-cyan-500/5 blur-[100px] transition-all [transition-duration:10s]"
-        style={{ animation: 'subtle-drift 25s infinite ease-in-out-reverse' }}
-      />
-
-      {/* Floating Sparkles - static values prevent hydration mismatch */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-40">
-        {[
-          { w: 4, h: 4, l: 8, t: 20, dur: 9, delay: 0 },
-          { w: 2, h: 2, l: 18, t: 60, dur: 12, delay: 1.5 },
-          { w: 3, h: 3, l: 30, t: 35, dur: 8, delay: 3 },
-          { w: 5, h: 5, l: 42, t: 75, dur: 11, delay: 0.8 },
-          { w: 2, h: 2, l: 55, t: 15, dur: 14, delay: 2.2 },
-          { w: 4, h: 4, l: 65, t: 55, dur: 10, delay: 4 },
-          { w: 3, h: 3, l: 74, t: 30, dur: 7, delay: 1 },
-          { w: 2, h: 2, l: 82, t: 80, dur: 13, delay: 5 },
-          { w: 5, h: 5, l: 90, t: 45, dur: 9, delay: 2 },
-          { w: 3, h: 3, l: 12, t: 85, dur: 11, delay: 3.5 },
-          { w: 2, h: 2, l: 48, t: 22, dur: 8, delay: 0.5 },
-          { w: 4, h: 4, l: 60, t: 68, dur: 12, delay: 1.8 },
-          { w: 3, h: 3, l: 25, t: 50, dur: 10, delay: 4.5 },
-          { w: 2, h: 2, l: 78, t: 12, dur: 9, delay: 2.8 },
-          { w: 5, h: 5, l: 36, t: 90, dur: 14, delay: 0.3 },
-        ].map((p, i) => (
-          <div
-            key={i}
-            className="absolute rounded-full bg-cyan-400"
-            style={{
-              width: `${p.w}px`,
-              height: `${p.h}px`,
-              left: `${p.l}%`,
-              top: `${p.t}%`,
-              animation: `float-particle ${p.dur}s infinite linear`,
-              animationDelay: `${p.delay}s`,
-            }}
-          />
-        ))}
-      </div>
-
-      {/* Left Column - Showcase & Branding */}
-      <div className="relative hidden w-[45%] flex-col justify-between border-r border-border/40 bg-card/20 p-12 backdrop-blur-md lg:flex">
-        {/* Header brand name */}
-        <div className="flex items-center gap-3">
-          <Shield className="h-8 w-8 text-primary animate-pulse" />
-          <span className="text-xl font-bold tracking-wider bg-gradient-to-r from-blue-400 via-cyan-400 to-emerald-400 bg-clip-text text-transparent">
-            DRISTI AI
-          </span>
-        </div>
-
-        {/* Dynamic Showcase Panel */}
-        <div className="space-y-8 my-auto max-w-md">
-          {/* Logo Showcase with Active Scanline */}
-          <div className="relative group overflow-hidden rounded-2xl border border-white/10 bg-black/40 p-1 backdrop-blur-sm shadow-[0_0_50px_-12px_rgba(59,130,246,0.3)]">
-            <img
-              src="/logo.jpg"
-              alt="Dristi AI Logo"
-              className="h-48 w-full object-cover rounded-xl transition-all duration-700 group-hover:scale-[1.03]"
-            />
-            {/* Dark gradient overlay */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent pointer-events-none" />
-            {/* Glowing scanline */}
-            <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-transparent via-cyan-400/80 to-transparent animate-scan pointer-events-none" />
-            <div className="absolute bottom-4 left-4 right-4 flex justify-between items-center">
-              <span className="text-xs font-mono px-2 py-0.5 rounded bg-black/60 border border-white/10 text-cyan-400 tracking-widest uppercase">
-                SYSTEM ACTIVE
-              </span>
-              <span className="text-[10px] font-mono text-white/50">v1.0.4-LOCKED</span>
-            </div>
-          </div>
-
+        <div className="max-w-sm space-y-8">
           <div className="space-y-3">
-            <h1 className="text-3xl font-extrabold tracking-tight">
-              Event Guardian
-              <span className="block text-muted-foreground text-lg font-normal mt-1">
-                Secure access portal
-              </span>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ds-accent-ink">
+              Operator console
+            </p>
+            <h1 className="font-display text-3xl font-semibold leading-tight tracking-tight">
+              Crowd safety for live events
             </h1>
+            <p className="text-sm leading-relaxed text-ds-muted">
+              Monitor zone density, respond to alerts and coordinate staff from one control room.
+            </p>
           </div>
 
-          <div className="space-y-4">
+          <ul className="divide-y divide-ds-divider border-y border-ds-divider">
             {[
-              'Real-time crowd monitoring & alerts',
-              'Role-based access for control room operators',
-              'Secure Firebase authentication with JWT caching',
-            ].map((feature) => (
-              <div key={feature} className="flex items-center gap-3 text-muted-foreground">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                  <Shield className="h-4 w-4 text-primary" />
-                </div>
-                <span className="text-sm">{feature}</span>
-              </div>
+              { icon: Activity, text: 'Live crowd density by zone' },
+              { icon: BellRing, text: 'Alerts with dispatch for guards and medical' },
+              { icon: Lock, text: 'Role-based access per event' },
+            ].map(({ icon: Icon, text }) => (
+              <li key={text} className="flex items-center gap-3 py-3.5 text-sm text-ds-ink-2">
+                <Icon className="h-4 w-4 shrink-0 text-ds-accent" aria-hidden />
+                {text}
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
 
-        <div className="text-xs text-muted-foreground/60 flex justify-between items-center">
-          <span>© {new Date().getFullYear()} Dristi AI Platform</span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
-            Edge Servers Secured
-          </span>
-        </div>
-      </div>
+        <p className="text-xs text-ds-muted">© {new Date().getFullYear()} Dristhi AI</p>
+      </aside>
 
       {/* Login form */}
-      <div className="relative flex flex-1 flex-col items-center justify-center p-6 sm:p-10 z-10">
-        {/* Floating Mobile Logo Header */}
-        <div className="mb-6 flex flex-col items-center gap-2 lg:hidden">
-          <div className="relative h-16 w-36 overflow-hidden rounded-xl border border-white/10 bg-black/40">
-            <img src="/logo.jpg" alt="Dristi AI" className="h-full w-full object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-            <div className="absolute top-0 left-0 w-full h-[2px] bg-cyan-400 animate-scan pointer-events-none" />
-          </div>
-          <span className="text-sm font-semibold tracking-wider text-cyan-400 mt-1">DRISTI AI</span>
+      <div className="flex flex-1 flex-col items-center justify-center px-4 py-10 sm:px-10">
+        <div className="mb-8 lg:hidden">
+          <Brand />
         </div>
 
-        <div className="w-full max-w-md space-y-8">
-          <div className="text-center lg:text-left">
-            <h2 className="text-3xl font-bold tracking-tight">Sign in</h2>
-            <p className="mt-2 text-muted-foreground">
+        <div className="w-full max-w-sm space-y-6">
+          <div>
+            <h2 className="font-display text-2xl font-semibold tracking-tight">Sign in</h2>
+            <p className="mt-1.5 text-sm text-ds-muted">
               Control room staff only. Use the account your event owner set up for you.
             </p>
           </div>
 
-          {/* Google sign-in */}
           <Button
             type="button"
             variant="outline"
-            className="w-full h-11 gap-3 font-medium border-border/80 hover:bg-muted/50 transition-all"
+            className="h-11 w-full gap-3 bg-ds-surface font-medium"
             onClick={handleGoogleLogin}
             disabled={isBusy}
           >
@@ -281,13 +194,13 @@ export default function LoginPage() {
 
           <div className="relative">
             <Separator />
-            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background px-3 text-xs text-muted-foreground">
+            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-ds-ground px-3 text-xs text-ds-muted">
               or sign in with email
             </span>
           </div>
 
           <form onSubmit={handleEmailLogin} className="space-y-4">
-            <div className="grid gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="username">Username</Label>
                 <Input
@@ -297,7 +210,7 @@ export default function LoginPage() {
                   onChange={(e) => setUsername(e.target.value)}
                   required
                   disabled={isBusy}
-                  className="h-11 bg-card/50"
+                  className="h-11 bg-ds-surface"
                 />
               </div>
               <div className="space-y-2">
@@ -309,7 +222,7 @@ export default function LoginPage() {
                   onChange={(e) => setEmployeeId(e.target.value)}
                   required
                   disabled={isBusy}
-                  className="h-11 bg-card/50"
+                  className="h-11 bg-ds-surface"
                 />
               </div>
             </div>
@@ -324,7 +237,7 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={isBusy}
-                className="h-11 bg-card/50"
+                className="h-11 bg-ds-surface"
                 autoComplete="email"
               />
             </div>
@@ -339,13 +252,14 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   disabled={isBusy}
-                  className="h-11 bg-card/50 pr-10"
+                  className="h-11 bg-ds-surface pr-10"
                   autoComplete="current-password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-ds-muted transition-colors hover:text-ds-ink"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                   tabIndex={-1}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -353,39 +267,45 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <Button
-              type="submit"
-              className="w-full h-11 text-base font-semibold shadow-lg shadow-primary/20 transition-all hover:shadow-primary/30"
-              disabled={isBusy}
-            >
+            <Button type="submit" className="h-11 w-full text-sm font-semibold" disabled={isBusy}>
               {loading ? (
                 <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Signing in...
                 </>
               ) : (
-                <>
-                  <LogIn className="mr-2 h-5 w-5" />
-                  Sign in
-                </>
+                'Sign in'
               )}
             </Button>
           </form>
 
-          <div className="flex flex-col items-center gap-3 pt-2">
-            <p className="text-center text-sm text-muted-foreground">
+          <div className="space-y-3 border-t border-ds-divider pt-5">
+            <p className="text-sm text-ds-muted">
               Attending an event? You don’t sign in here. Scan the QR code on the event posters with your
               phone camera.
             </p>
-            <Button variant="ghost" size="sm" asChild className="text-muted-foreground">
-              <Link href="/">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to home
-              </Link>
-            </Button>
+            <Link
+              href="/"
+              className="inline-flex items-center text-sm font-medium text-ds-accent-ink hover:underline"
+            >
+              <ArrowLeft className="mr-1.5 h-4 w-4" />
+              Back to home
+            </Link>
           </div>
         </div>
       </div>
     </main>
+  );
+}
+
+/** Same mark as the operator sidebar (components/admin/admin-shell.jsx). */
+function Brand() {
+  return (
+    <span className="flex items-center gap-2.5">
+      <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-ds-accent">
+        <Eye className="h-[18px] w-[18px] text-ds-on-accent" strokeWidth={2} aria-hidden />
+      </span>
+      <span className="font-display text-xl font-semibold text-ds-ink">Dristhi</span>
+    </span>
   );
 }

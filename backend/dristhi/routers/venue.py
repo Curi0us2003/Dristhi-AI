@@ -33,7 +33,7 @@ def event_map(slug: str, db: Session = Depends(get_db)) -> dict:
             func.ST_X(func.ST_PointOnSurface(Zone.polygon)),
             func.ST_Y(func.ST_PointOnSurface(Zone.polygon)),
         )
-        .where(Zone.event_id == event.id)
+        .where(Zone.event_id == event.id, Zone.polygon.is_not(None))
         .order_by(Zone.name)
     )
     for zid, name, capacity, geojson, cx, cy in zones:

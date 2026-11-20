@@ -1,15 +1,5 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { db } from '@/lib/firebase';
-import {
-  collection,
-  onSnapshot,
-  doc,
-  updateDoc,
-  deleteDoc,
-  addDoc,
-  serverTimestamp,
-} from 'firebase/firestore';
 import { PageHeader, Panel } from '@/components/admin/ui';
 import {
   DropdownMenu,
@@ -38,10 +28,18 @@ import {
 import Image from 'next/image';
 import { useEvent } from '@/contexts/event-context';
 import { StatusBadge } from '@/components/admin/status-badge';
-import { assignStaffToGrievance, STAFF_KIND_LABEL, updateStaff, watchStaff } from '@/lib/admin-data';
+import {
+  assignStaffToGrievance,
+  notifyAttendee,
+  resolveGrievance,
+  STAFF_KIND_LABEL,
+  updateStaff,
+  watchGrievances,
+  watchStaff,
+} from '@/lib/admin-data';
 
 /**
- * A report from an attendee (Firestore collection `grievances`). Other pages import this type.
+ * A report from an attendee (Cloud SQL table `grievances`, via lib/admin-data.js).
  *
  * @typedef {object} Grievance
  * @property {string} id
@@ -66,12 +64,6 @@ import { assignStaffToGrievance, STAFF_KIND_LABEL, updateStaff, watchStaff } fro
  * @property {{ seconds: number } | null} [assignedAt]
  */
 
-/** Attendee reports are addressed by attendee id; older reports by email. */
-function notificationRecipient(g) {
-  if (g.attendeeId) return { attendeeId: g.attendeeId };
-  const email = g.email || g.submittedBy;
-  return email ? { userEmail: email } : null;
-}
 
 const grievanceIcons = {
   'Medical Attention': Stethoscope,
@@ -139,16 +131,16 @@ export default function GrievancesPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const grievancesRef = collection(db, 'grievances');
-    return onSnapshot(grievancesRef, (snapshot) => {
-      const grievancesData = snapshot.docs
-        .map((doc) => ({ id: doc.id, ...doc.data() }))
-        .filter((g) => g.status === 'new')
-        .sort((a, b) => (b.submittedAt?.seconds ?? 0) - (a.submittedAt?.seconds ?? 0));
-      setGrievances(grievancesData);
-      setLoading(false);
-    });
-  }, []);
+    if (!event) return;
+    return watchGrievances(
+      event.id,
+      (list) => {
+        setGrievances(list);
+        setLoading(false);
+      },
+      'new',
+    );
+  }, [event]);
 
   useEffect(() => {
     if (!event) return;
@@ -161,16 +153,9 @@ export default function GrievancesPage() {
     return () => clearInterval(t);
   }, []);
 
-  const notify = (grievance, message) => {
-    const recipient = notificationRecipient(grievance);
-    if (!recipient) return Promise.resolve();
-    return addDoc(collection(db, 'notifications'), {
-      ...recipient,
-      message,
-      createdAt: serverTimestamp(),
-      read: false,
-    });
-  };
+  /** Messages the attendee who sent the report (reports always come from an attendee). */
+  const notify = (grievance, message) =>
+    grievance.attendeeId && event ? notifyAttendee(event.id, grievance.attendeeId, message) : Promise.resolve();
 
   const handleAssign = async (grievance, member) => {
     if (!event) return;
@@ -200,7 +185,7 @@ export default function GrievancesPage() {
   };
 
   const handleResolve = async (grievance) => {
-    const grievanceRef = doc(db, 'grievances', grievance.id);
+    if (!event) return;
     try {
       let message = `Your grievance regarding "${grievance.type}" has been resolved.`;
       if (grievance.type === 'Missing Person') {
@@ -217,11 +202,8 @@ export default function GrievancesPage() {
         ? `Handled by ${grievance.assignedStaffName}`
         : 'Resolved by control room';
 
-      if (grievance.type === 'Missing Person') {
-        await deleteDoc(grievanceRef);
-      } else {
-        await updateDoc(grievanceRef, { status: 'resolved', actionTaken, resolvedAt: serverTimestamp() });
-      }
+      // Resolved missing-person reports drop off every attendee's alert list.
+      await resolveGrievance(event.id, grievance.id, actionTaken);
       toast({ title: 'Report resolved', description: 'The person who reported it has been notified.' });
     } catch (error) {
       console.error('Error resolving grievance:', error);

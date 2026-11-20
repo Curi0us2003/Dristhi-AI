@@ -27,6 +27,8 @@ from crowd_counter import load_counter, render_density_overlay
 from dristhi.errors import register_error_handlers
 from dristhi.routers import attendees as attendees_router
 from dristhi.routers import venue as venue_router
+from dristhi.routers import admin as admin_router
+from dristhi.routers import reports as reports_router
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -338,6 +340,8 @@ app.add_middleware(
 register_error_handlers(app)
 app.include_router(attendees_router.router)
 app.include_router(venue_router.router)
+app.include_router(admin_router.router)
+app.include_router(reports_router.router)
 
 
 # ─────────────────────────────────────────────────────────────

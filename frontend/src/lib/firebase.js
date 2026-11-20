@@ -1,6 +1,5 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { connectAuthEmulator, getAuth } from 'firebase/auth';
-import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
 
 const useEmulators = process.env.NEXT_PUBLIC_USE_EMULATORS === 'true';
 
@@ -17,12 +16,11 @@ const firebaseConfig = {
 const isFirstInit = getApps().length === 0;
 const app = isFirstInit ? initializeApp(firebaseConfig) : getApps()[0];
 const auth = getAuth(app);
-const db = getFirestore(app);
 
-// Local development against `npm run emulators` (ports from firebase.json).
+// Firebase is only the sign-in provider; all data lives in Cloud SQL behind the backend.
+// Local development signs in against the Auth emulator (`npm run emulators`).
 if (useEmulators && isFirstInit) {
   connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
-  connectFirestoreEmulator(db, '127.0.0.1', 8081);
 }
 
-export { app, auth, db };
+export { app, auth };

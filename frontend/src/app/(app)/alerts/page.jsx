@@ -1,7 +1,5 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
-import { collection, getDocs, doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -76,40 +74,6 @@ export default function AlertsPage() {
   const [filterLevel, setFilterLevel] = useState('all');
   const intervalRef = useRef();
 
-  // Store alerts to Firestore for caching
-  const storeAlertsInFirestore = async (alertsList) => {
-    try {
-      const promises = alertsList.map(async (alert, index) => {
-        const docRef = doc(db, 'alerts_data', `${alert.feed_id}_${index}`);
-        await setDoc(docRef, { ...alert, firestoreTimestamp: serverTimestamp() });
-      });
-      await Promise.all(promises);
-    } catch (err) {
-      console.error('Error caching alerts in Firestore:', err);
-    }
-  };
-
-  // Load alerts from Firestore as a fallback
-  const loadAlertsFromFirestore = async () => {
-    try {
-      const querySnapshot = await getDocs(collection(db, 'alerts_data'));
-      if (!querySnapshot.empty) {
-        const cachedAlerts = querySnapshot.docs.map((d) => d.data());
-        setAlerts(cachedAlerts);
-        setLastUpdated(new Date().toISOString());
-        setError('Backend offline – showing cached alerts from Firestore.');
-        console.info('Loaded alerts from Firestore cache.');
-      } else {
-        setError('Backend offline and no cached alert data available.');
-      }
-    } catch (fsErr) {
-      console.error('Firestore alerts fallback failed:', fsErr);
-      setError('Backend offline and Firestore cache unavailable.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const fetchAlertsAndPredictions = async () => {
     try {
       setLoading(true);
@@ -145,12 +109,9 @@ export default function AlertsPage() {
       const combined = [...alertsData.alerts, ...predictedAlerts];
       setAlerts(combined);
       setLastUpdated(alertsData.timestamp);
-      // Cache to Firestore so fallback is available
-      await storeAlertsInFirestore(combined);
     } catch (err) {
       console.error('Error fetching alerts:', err);
-      // Fallback to Firestore cache
-      await loadAlertsFromFirestore();
+      setError('Backend offline. Alerts will refresh when it is back.');
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }

@@ -2,8 +2,6 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { GoogleMap, useJsApiLoader, OverlayViewF, InfoWindowF } from '@react-google-maps/api';
-import { collection, getDocs, doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { BACKEND_URL } from '@/lib/backend-url';
 
@@ -137,18 +135,6 @@ export const MapViewPage = ({ highlightPoi }) => {
 
   const API_ENDPOINT = `${BACKEND_URL}/api/heatmap`;
 
-  const storeInFirestore = async (heatmapData, timestamp) => {
-    try {
-      const promises = heatmapData.map(async (item, index) => {
-        const docRef = doc(db, 'heatmap_data', `location_${item.area || index}`);
-        await setDoc(docRef, { ...item, apiTimestamp: timestamp, firestoreTimestamp: serverTimestamp() });
-      });
-      await Promise.all(promises);
-    } catch (err) {
-      console.error('Error storing data in Firestore: ', err);
-    }
-  };
-
   const processMapData = useCallback((data) => {
     setLocations(data);
     if (data.length > 0) {
@@ -162,24 +148,6 @@ export const MapViewPage = ({ highlightPoi }) => {
     }
   }, []);
 
-  const loadFromFirestore = useCallback(async () => {
-    setLoading(true);
-    try {
-      const querySnapshot = await getDocs(collection(db, 'heatmap_data'));
-      const firestoreData = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      if (firestoreData.length > 0) {
-        processMapData(firestoreData);
-      } else {
-        setError('No data in Firestore, and API fetch failed.');
-      }
-    } catch (err) {
-      console.error('Error loading from Firestore: ', err);
-      setError('Failed to load data from Firestore.');
-    } finally {
-      setLoading(false);
-    }
-  }, [processMapData]);
-
   const fetchFromAPI = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -189,16 +157,14 @@ export const MapViewPage = ({ highlightPoi }) => {
       const apiResponse = await response.json();
       const heatmapDataArray = apiResponse.heatmap || [];
       if (heatmapDataArray.length === 0) throw new Error('No heatmap data received from API');
-      await storeInFirestore(heatmapDataArray, apiResponse.timestamp);
       processMapData(heatmapDataArray);
     } catch (err) {
       console.error('Error fetching from API: ', err);
       setError(`Failed to fetch data from API: ${err.message}`);
-      await loadFromFirestore();
     } finally {
       setLoading(false);
     }
-  }, [API_ENDPOINT, processMapData, loadFromFirestore]);
+  }, [API_ENDPOINT, processMapData]);
 
   useEffect(() => {
     if (!isLoaded) return;

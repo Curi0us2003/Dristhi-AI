@@ -19,23 +19,13 @@ import {
   Terminal,
   ShieldAlert,
 } from 'lucide-react';
-import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { generateAutonomousCommandPlan } from '@/ai/flows/autonomous-command.client';
-import { approveMoves, assignStaffToGrievance } from '@/lib/admin-data';
+import { approveMoves, assignStaffToGrievance, notifyAttendee } from '@/lib/admin-data';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-/** Attendee reports are addressed by attendee id; older reports by email. */
-function notificationRecipient(g) {
-  if (!g) return null;
-  if (g.attendeeId) return { attendeeId: g.attendeeId };
-  const email = g.email || g.submittedBy;
-  return email ? { userEmail: email } : null;
-}
-
 /**
  * `guards`, `ambulances` and `medicalStaff` are roster views (see rosterViews in admin-data) used
  * as planner input; `staff`, `zones` and `eventId` are the event's roster, which approved actions
@@ -69,16 +59,9 @@ export default function AutonomousAgent({
     const member = staffById(staffId);
     if (!eventId || !member) throw new Error('Staff member is not on this event roster');
     await assignStaffToGrievance(eventId, member, grievanceId, reason);
-    const recipient = notificationRecipient(grievances.find((g) => g.id === grievanceId));
-    if (recipient) {
-      await addDoc(collection(db, 'notifications'), {
-        ...recipient,
-        message,
-        createdAt: serverTimestamp(),
-        read: false,
-      });
-    }
-    return recipient;
+    const attendeeId = grievances.find((g) => g.id === grievanceId)?.attendeeId;
+    if (attendeeId) await notifyAttendee(eventId, attendeeId, message);
+    return attendeeId ? { attendeeId } : null;
   };
   const [agentState, setAgentState] = useState('idle');
   const [plan, setPlan] = useState(null);

@@ -16,11 +16,11 @@ on another app, the dependency is written as an interface, so that each team can
 ## Hackathon build (1 day) — what we are building now
 
 Everything below this section is the longer-term plan. For the hackathon only these five pieces are
-built, on **Firestore** (the app's existing database) and the existing FastAPI people counter. The
+built, on **Cloud SQL** through the backend API (`backend/dristhi/routers/admin.py`; Firebase only signs admins in) and the existing FastAPI people counter. The
 staff app comes after the hackathon. (Data Connect was the first choice, but its emulator is blocked
 by Windows Smart App Control on the dev machine; the schema is kept in `frontend/dataconnect/` for later.)
 
-| # | Feature | Page | Store (Firestore collection) |
+| # | Feature | Page | Store (Cloud SQL table) |
 | --- | --- | --- | --- |
 | H1 | **Event:** create, pick and edit an event; thresholds (warning %, critical %, people per guard) | `/setup` → Event | `events` |
 | H2 | **Zones:** name, capacity, minimum guards, linked camera feed (from `/api/feeds`) | `/setup` → Zones | `zones` |
@@ -34,20 +34,20 @@ rules), `src/contexts/event-context.jsx` (selected event), `src/components/admin
 `src/app/(app)/command|setup|grievances/page.jsx`.
 
 Rules of the hackathon build:
-- Firestore rules are still the open demo rules. Lock them down before any real event.
 - Grievances keep their shape so that the attendee app works unchanged. Assignment is stored as extra
   fields (`assignedStaffId`, `assignedStaffName`, `assignedStaffKind`, `assignedAt`); `status` stays
   `new` / `resolved`. Grievances have no `eventId` yet, so every event sees all of them.
 - The selected event is remembered in the browser (`localStorage`), not the URL.
 - The Dashboard (Guard Status, Active Guards, AI summary) and the autonomous agent read and write the event's `staff` roster (`rosterViews` in `admin-data.js`). The old `guards`, `medical_staff` and `ambulances` collections are no longer read; only the old seed scripts in `src/scripts/` still write them.
 
-Run locally without a Firebase project (needs Java for the Firestore emulator):
+Run locally without a Firebase project (needs Java for the Auth emulator, and the Cloud SQL proxy for the backend):
 
 ```
 cd frontend
 # .env.local:  NEXT_PUBLIC_USE_EMULATORS=true
-npm run emulators          # terminal 1: Auth + Firestore emulators (demo-dristhi)
-npm run seed:emulator      # once: demo admin, event, 8 zones, 23 staff, 3 reports
+npm run emulators          # terminal 1: Auth emulator (demo-dristhi)
+npm run seed:emulator      # once per emulator start: the demo admin's sign-in account
+# backend: cloud-sql-proxy running, then python scripts/create_admin.py (admin row in Cloud SQL)
 npm run dev                # terminal 2: http://localhost:9002 (backend on :5000 for live counts)
 ```
 
@@ -56,7 +56,7 @@ The demo login (operator username, employee id, email, password) is in `frontend
 ### Two sites: admin and attendee
 
 One build (`frontend/out`) is deployed to two Firebase Hosting sites in the same project, so the
-apps have their own URLs while sharing the backend, Firestore and Auth (`frontend/firebase.json`
+apps have their own URLs while sharing the backend (Cloud SQL) and Firebase Auth (`frontend/firebase.json`
 targets; site mapping in `frontend/.firebaserc.example`, copy it to the git-ignored `.firebaserc`):
 
 | Target | Site (default URL) | Front page | Pages of the other app |

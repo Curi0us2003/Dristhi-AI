@@ -15,10 +15,13 @@ from sqlalchemy import create_engine, text
 
 from dristhi import config, db
 from dristhi.errors import register_error_handlers
-from dristhi.routers import attendees, venue
+from dristhi.routers import admin, attendees, reports, venue
 
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
-TABLES = ("pois", "zones", "attendees", "events", "organizations")
+TABLES = (
+    "notifications", "dispatches", "grievances", "staff", "admins",
+    "pois", "zones", "attendees", "events", "organizations",
+)
 
 
 def make_app() -> FastAPI:
@@ -27,6 +30,8 @@ def make_app() -> FastAPI:
     register_error_handlers(app)
     app.include_router(attendees.router)
     app.include_router(venue.router)
+    app.include_router(admin.router)
+    app.include_router(reports.router)
     return app
 
 
