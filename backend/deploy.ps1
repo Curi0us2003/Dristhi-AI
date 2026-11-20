@@ -1,126 +1,71 @@
-# deploy.ps1 - Deploy Crowd Monitoring API to GCP Cloud Run
-# Usage: .\deploy.ps1 -ProjectId "your-gcp-project-id" [-Region "us-central1"] [-ServiceName "crowd-monitoring-api"] [-KeyFile "path/to/key.json"]
+# deploy.ps1 - Build the backend image with Cloud Build and deploy it to Cloud Run (asia-south1).
+#
+# Usage:
+#   .\deploy.ps1 -ProjectId dhristi-ai-buildathon [-Tag v3] [-Region asia-south1] [-ServiceName crowd-monitoring-api]
+#                [-SqlInstance <project>:<region>:dristhi-fdc] [-PublicAppUrl https://<attendee-site>] [-CorsOrigins "<origin>,<origin>"]
+#
+# Same behaviour as deploy.sh. No secret is passed on the command line: Cloud Run reads DATABASE_URL
+# from the Secret Manager secret `dristhi-database-url`.
 
 param (
-    [Parameter(Mandatory=$false)]
     [string]$ProjectId,
-
-    [Parameter(Mandatory=$false)]
-    [string]$Region = "us-central1",
-
-    [Parameter(Mandatory=$false)]
+    [string]$Region = "asia-south1",
     [string]$ServiceName = "crowd-monitoring-api",
-
-    [Parameter(Mandatory=$false)]
-    [string]$KeyFile
+    [string]$Tag,
+    [string]$SqlInstance,
+    [string]$PublicAppUrl,
+    [string]$CorsOrigins
 )
 
-# Suppress progress stream for cleaner output
-$ProgressPreference = 'SilentlyContinue'
-
-Write-Host "=========================================================" -ForegroundColor Cyan
-Write-Host "      GCP Cloud Run Deployer - Crowd Monitoring API      " -ForegroundColor Cyan
-Write-Host "=========================================================" -ForegroundColor Cyan
-
-# Prompt for ProjectId if not provided
-if (-not $ProjectId) {
-    $ProjectId = Read-Host "Enter your GCP Project ID"
-    if (-not $ProjectId) {
-        Write-Error "Project ID is required. Exiting."
-        exit 1
-    }
-}
-
-# Add gcloud to path in current session if it exists in the default winget path
-$defaultGcloudPath = "C:\Users\User\AppData\Local\Google\Cloud SDK\google-cloud-sdk\bin"
-if (Test-Path $defaultGcloudPath) {
-    if ($env:PATH -notlike "*$defaultGcloudPath*") {
-        $env:PATH += ";$defaultGcloudPath"
-    }
-}
-
-# 1. Authenticate if KeyFile is provided
-if ($KeyFile) {
-    if (-not (Test-Path $KeyFile)) {
-        Write-Error "Key file not found at: $KeyFile. Exiting."
-        exit 1
-    }
-    Write-Host "[AUTH] Authenticating using service account key file..." -ForegroundColor Yellow
-    gcloud.cmd auth activate-service-account --key-file=$KeyFile
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "Authentication failed. Exiting."
-        exit 1
-    }
-} else {
-    Write-Host "[INFO] Using existing gcloud credentials. (Run 'gcloud.cmd auth login' first if not authenticated)" -ForegroundColor Yellow
-}
-
-# 2. Set Active Project
-Write-Host "[CONFIG] Setting active project to '$ProjectId'..." -ForegroundColor Yellow
-gcloud.cmd config set project $ProjectId
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "Failed to set GCP project. Exiting."
-    exit 1
-}
-
-# 3. Enable Required Services
-Write-Host "[API] Enabling required GCP services (Cloud Run, Cloud Build, Artifact Registry)..." -ForegroundColor Yellow
-gcloud.cmd services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "Failed to enable required GCP services. Exiting."
-    exit 1
-}
-
-# 4. Check/Create Artifact Registry Repository
+$ErrorActionPreference = "Stop"
 $RepoName = "crowd-monitoring"
-Write-Host "[REPO] Checking if Artifact Registry repository '$RepoName' exists in '$Region'..." -ForegroundColor Yellow
-$repoExists = gcloud.cmd artifacts repositories describe $RepoName --location=$Region --format="value(name)" 2>$null
+$DbSecret = "dristhi-database-url"
 
-if (-not $repoExists) {
-    Write-Host "[REPO] Repository '$RepoName' not found. Creating..." -ForegroundColor Yellow
-    gcloud.cmd artifacts repositories create $RepoName `
-        --repository-format=docker `
-        --location=$Region `
-        --description="Docker repository for Crowd Monitoring API"
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "Failed to create Artifact Registry repository. Exiting."
-        exit 1
-    }
-} else {
-    Write-Host "[INFO] Repository '$RepoName' already exists." -ForegroundColor Green
+if (-not $ProjectId) { $ProjectId = Read-Host "GCP project ID" }
+if (-not $ProjectId) { Write-Error "Project ID is required."; exit 1 }
+
+if (-not $Tag) {
+    $Tag = (git rev-parse --short HEAD 2>$null)
+    if (-not $Tag) { $Tag = Get-Date -Format "yyyyMMddHHmm" }
 }
+if (-not $SqlInstance) { $SqlInstance = "${ProjectId}:${Region}:dristhi-fdc" }
+if (-not $PublicAppUrl) { $PublicAppUrl = "https://dhristi-ai-attendee.web.app" }
+if (-not $CorsOrigins) { $CorsOrigins = "https://$ProjectId.web.app,https://$ProjectId.firebaseapp.com,$PublicAppUrl" }
+$Image = "$Region-docker.pkg.dev/$ProjectId/$RepoName/${ServiceName}:$Tag"
 
-# 5. Build Image using Cloud Build (bypasses local Docker requirements)
-$ImageTag = "${Region}-docker.pkg.dev/${ProjectId}/${RepoName}/${ServiceName}:latest"
-Write-Host "[BUILD] Submitting build to Google Cloud Build (this may take a few minutes)..." -ForegroundColor Yellow
-Write-Host "Image Tag: $ImageTag" -ForegroundColor DarkGray
+Write-Host "Project:      $ProjectId"
+Write-Host "Image:        $Image"
+Write-Host "Cloud SQL:    $SqlInstance"
+Write-Host "CORS origins: $CorsOrigins"
 
-gcloud.cmd builds submit --tag $ImageTag .
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "Cloud Build failed. Exiting."
-    exit 1
-}
-Write-Host "[SUCCESS] Cloud Build completed successfully!" -ForegroundColor Green
+gcloud config set project $ProjectId | Out-Null
 
-# 6. Deploy to Cloud Run
-Write-Host "[DEPLOY] Deploying to Google Cloud Run..." -ForegroundColor Yellow
-gcloud.cmd run deploy $ServiceName `
-    --image $ImageTag `
-    --platform managed `
+Write-Host "Building with Cloud Build (a few minutes)..."
+gcloud builds submit --tag $Image .
+if ($LASTEXITCODE -ne 0) { exit 1 }
+
+Write-Host "Deploying to Cloud Run..."
+# One instance only (crowd counts live in memory); --timeout 3600 keeps camera streams open.
+# ^@^ makes "@" the list separator, because CorsOrigins itself contains commas.
+gcloud run deploy $ServiceName `
+    --image $Image `
     --region $Region `
-    --no-cpu-throttling `
-    --min-instances 1 `
-    --max-instances 1 `
+    --platform managed `
     --cpu 2 `
     --memory 4Gi `
-    --allow-unauthenticated `
+    --min-instances 1 `
+    --max-instances 1 `
+    --no-cpu-throttling `
+    --timeout 3600 `
     --port 8080 `
-    --set-env-vars ENV=production
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "Cloud Run deployment failed. Exiting."
-    exit 1
-}
+    --allow-unauthenticated `
+    --add-cloudsql-instances $SqlInstance `
+    --set-secrets "DATABASE_URL=${DbSecret}:latest" `
+    --set-env-vars "^@^ENV=production@FIREBASE_PROJECT_ID=$ProjectId@PUBLIC_APP_URL=$PublicAppUrl@CORS_ORIGINS=$CorsOrigins"
+if ($LASTEXITCODE -ne 0) { exit 1 }
 
-Write-Host "=========================================================" -ForegroundColor Green
-Write-Host "[SUCCESS] Deployment completed successfully!" -ForegroundColor Green
-Write-Host "=========================================================" -ForegroundColor Green
+$Url = gcloud run services describe $ServiceName --region $Region --format="value(status.url)"
+Write-Host ""
+Write-Host "Deployed: $Url"
+Write-Host "Check:    $Url/api/health"
+Write-Host "Frontend: set NEXT_PUBLIC_BACKEND_URL=$Url in frontend/.env, then npm run deploy"

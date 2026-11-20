@@ -1,14 +1,4 @@
 {
-  "functions": [
-    {
-      "source": "functions",
-      "codebase": "default",
-      "ignore": [
-        "node_modules",
-        ".git"
-      ]
-    }
-  ],
   "hosting": [
     {
       "target": "admin",
@@ -29,12 +19,6 @@
           "source": "/user{,/**}",
           "destination": "/login",
           "type": 302
-        }
-      ],
-      "rewrites": [
-        {
-          "source": "/api/**",
-          "function": "api"
         }
       ],
       "headers": [
@@ -77,12 +61,6 @@
           "source": "/@(login|signup|command|dashboard|setup|grievances|alerts|live-feed|map-view){,/**}",
           "destination": "/user/dashboard",
           "type": 302
-        }
-      ],
-      "rewrites": [
-        {
-          "source": "/api/**",
-          "function": "api"
         }
       ],
       "headers": [
