@@ -47,7 +47,7 @@ every zone has a medic or first-aid post within reach.
 
 ```
 cd backend && pytest -q
-cd frontend && npm run typecheck && npm run build
+cd frontend && npm run build
 ```
 
 ## HUMAN

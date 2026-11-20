@@ -47,7 +47,7 @@ In: scripts, CORS, Firebase config, docs. Out: database, Secret Manager (task 03
 
 ```
 bash -n backend/deploy.sh && bash -n backend/scripts/scale.sh
-cd frontend && npm run typecheck && npm run build
+cd frontend && npm run build
 ```
 
 ## HUMAN (owner of the GCP project)

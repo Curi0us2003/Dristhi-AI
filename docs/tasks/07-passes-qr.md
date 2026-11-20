@@ -66,7 +66,7 @@ number is on it, on one device. A forwarded QR fails at the SMS step.
 
 ```
 cd backend && pytest -q
-cd frontend && npm run typecheck && npm run build
+cd frontend && npm run build
 ```
 
 ## HUMAN

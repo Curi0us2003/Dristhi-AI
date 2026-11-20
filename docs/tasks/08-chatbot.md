@@ -34,7 +34,7 @@ attendee taps Send. All Gemini calls move to the backend.
 3. `POST /api/events/{id}/grievances` (attendee) receives the reviewed draft. Photos: the client
    asks `POST /api/events/{id}/uploads/photo` for a signed URL, uploads, sends the object path.
 4. Move the other AI features: `POST /api/events/{id}/agent/plan` (autonomous agent, same JSON
-   plan shape as `frontend/src/ai/flows/autonomous-command.client.ts`) and
+   plan shape as `frontend/src/ai/flows/autonomous-command.client.js`) and
    `POST /api/events/{id}/summary`. Keep the rule-based fallbacks on the backend.
 5. Frontend:
    - Chat UI per the mockup: bubbles, draft card with fields, Edit and Send, "Not sent yet" label,
@@ -57,7 +57,7 @@ attendee taps Send. All Gemini calls move to the backend.
 
 ```
 cd backend && pytest -q
-cd frontend && npm run typecheck && npm run build && grep -r "generativelanguage" out || echo clean
+cd frontend && npm run build && grep -r "generativelanguage" out || echo clean
 ```
 
 ## HUMAN

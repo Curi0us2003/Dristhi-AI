@@ -31,18 +31,18 @@ to Firestore. This closes the biggest security hole (Firestore rules open to eve
 4. Port `frontend/src/scripts/create-admin.js` to `backend/scripts/create_admin.py` (creates the
    Firebase user if needed and the `admins` row). Add `backend/scripts/migrate_firestore.py`
    that copies guards, ambulances, medical_staff and grievances from Firestore into the demo event.
-5. Frontend `src/lib/api.ts`: a `fetch` wrapper that adds the Firebase ID token, refreshes it on
+5. Frontend `src/lib/api.js`: a `fetch` wrapper that adds the Firebase ID token, refreshes it on
    401 once, and throws typed errors.
 6. Replace every direct Firestore read and write with API calls. Find them with
-   `grep -rn "firebase/firestore" frontend/src`. Today they are in: `app/(app)/dashboard/page.tsx`,
-   `app/(app)/grievances/page.tsx`, `app/(app)/live-feed/page.tsx`, `app/(app)/alerts/page.tsx`,
-   `app/user/dashboard/page.tsx`, `components/autonomous-agent.tsx`,
-   `components/map-view-component.tsx`, `components/user-dashboard/chatbot.tsx`,
-   `services/grievance-service.ts`, `lib/auth-service.ts`.
+   `grep -rn "firebase/firestore" frontend/src`. Today they are in: `app/(app)/dashboard/page.jsx`,
+   `app/(app)/grievances/page.jsx`, `app/(app)/live-feed/page.jsx`, `app/(app)/alerts/page.jsx`,
+   `app/user/dashboard/page.jsx`, `components/autonomous-agent.jsx`,
+   `components/map-view-component.jsx`, `components/user-dashboard/chatbot.jsx`,
+   `services/grievance-service.js`, `lib/auth-service.js`.
    Replace `onSnapshot` live lists with the SSE stream or 5 s polling.
    The Firestore seed scripts in `frontend/src/scripts/` (`seed-*.js`, `create-admin.js`) are
    replaced by the backend scripts from step 4; delete them and their `package.json` entries.
-7. Login: `auth-service.ts` checks the operator role through `GET /api/me` instead of querying
+7. Login: `auth-service.js` checks the operator role through `GET /api/me` instead of querying
    the Firestore `admin` collection.
 8. `frontend/firestore.rules`: deny all reads and writes (or only allow what notifications still
    need, if you kept them in Firestore).
@@ -62,7 +62,7 @@ In: auth, the listed routers, frontend data access. Out: events/cameras CRUD (05
 
 ```
 cd backend && pytest -q          # include tests for 401/403 using a stubbed verify_id_token
-cd frontend && npm run typecheck && npm run build
+cd frontend && npm run build
 grep -rn "firebase/firestore" frontend/src
 ```
 

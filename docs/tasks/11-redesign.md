@@ -19,8 +19,8 @@ Rebuild every screen in the minimal style of the mockups, keeping behaviour and 
 
 1. **Foundation (first PR only):**
    - Add the tokens from `docs/design/README.md` as CSS variables in
-     `frontend/src/app/globals.css` (light and dark) and map them in `tailwind.config.ts`.
-   - Load Inter and Space Grotesk with `next/font/google` in `src/app/layout.tsx`.
+     `frontend/src/app/globals.css` (light and dark) and map them in `tailwind.config.js`.
+   - Load Inter and Space Grotesk with `next/font/google` in `src/app/layout.jsx`.
    - Update the shadcn/ui components in `src/components/ui/` (button, card, input, badge,
      tabs, table) to use the tokens, radii and sizes from the design README.
    - Add a `StatusBadge` component (Critical / Warning / Predicted / Normal: colour plus word).
@@ -60,7 +60,7 @@ not exist yet, show a placeholder and list it under Follow-ups.
 ## Verify
 
 ```
-cd frontend && npm run typecheck && npm run build
+cd frontend && npm run build
 ```
 
 Then check the screen in a browser at 1440 px and 390 px wide and describe any differences from the mockup.

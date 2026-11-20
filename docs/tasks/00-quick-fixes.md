@@ -17,7 +17,7 @@ Fix three known bugs before any bigger change, so later work starts from a corre
 1. **Predictions never show on the Alerts page.**
    - `GET /api/predictions` in `backend/app.py` returns `{"predictions": {<feed_id>: {feed_name,
      current, trend, predictions: {"15_min", "30_min"}, risk_level}}}`: an object keyed by feed.
-   - `frontend/src/app/(app)/alerts/page.tsx` (around line 181) expects an array with `sectorId`,
+   - `frontend/src/app/(app)/alerts/page.jsx` (around line 181) expects an array with `sectorId`,
      `riskLevel`, `predictedCrowd`, `recommendations`, so the list is always empty.
    - Fix the frontend: update the `Prediction` / `PredictionsResponse` types to the real shape,
      read `Object.entries(predictionsData.predictions)`, keep entries with `risk_level === 'high'`,
@@ -47,5 +47,5 @@ In: the three fixes above. Out: refactoring `app.py`, new features, the Cloud Fu
 
 ```
 python -m compileall -q backend
-cd frontend && npm run typecheck && npm run build
+cd frontend && npm run build
 ```

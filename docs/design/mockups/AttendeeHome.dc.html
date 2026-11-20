@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Attendee home</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#0B5E52}a:hover{color:#08443B}
+</style>
+</helmet>
+<div style="box-sizing: border-box; min-height: 100vh; background: #E8EBE5; padding: 40px; font-family: Inter, Arial, sans-serif; color: #14202E; display: flex; gap: 32px; align-items: flex-start; overflow-x: auto">
+
+<!-- 1. Location explainer: shown once, on first open, before the browser's own permission dialog -->
+<figure style="margin: 0; flex: none; display: flex; flex-direction: column; gap: 12px">
+<figcaption style="font-size: 13px; font-weight: 600; color: #3B4655">1 · Allow location (first open, before the browser asks)</figcaption>
+<div style="position: relative; width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F1; display: flex; flex-direction: column; overflow: hidden; border-radius: 28px; box-shadow: 0 2px 12px rgba(20, 32, 46, 0.12)">
+<header style="background: #FCFCFA; border-bottom: 1px solid #E3E6E0; padding: 20px 16px 14px; display: flex; align-items: center; gap: 12px">
+<div style="width: 36px; height: 36px; border-radius: 12px; background: #0E7C6B"></div>
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 16px; font-weight: 600">[Event name]</span><span style="font-size: 12px; color: #5B6675">You are Attendee 12</span></div>
+</header>
+<div style="padding: 16px; display: flex; flex-direction: column; gap: 16px" aria-hidden="true">
+<div style="height: 80px; border-radius: 16px; background: #FBE4DA"></div>
+<div style="height: 96px; border-radius: 12px; background: #FCFCFA; border: 1px solid #E3E6E0"></div>
+<div style="height: 160px; border-radius: 16px; background: #FCFCFA; border: 1px solid #E3E6E0"></div>
+</div>
+<div style="position: absolute; inset: 0; background: rgba(15, 27, 42, 0.45)"></div>
+<section role="dialog" aria-modal="true" aria-labelledby="loc-h" aria-describedby="loc-d" style="position: absolute; left: 0; right: 0; bottom: 0; background: #FCFCFA; border-radius: 24px 24px 0 0; padding: 12px 20px 30px; display: flex; flex-direction: column; gap: 16px">
+<span style="align-self: center; width: 40px; height: 4px; border-radius: 999px; background: #D3D9D1"></span>
+<span style="width: 48px; height: 48px; border-radius: 14px; background: #E3F1EC; color: #0E7C6B; display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></svg></span>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h2 id="loc-h" style="margin: 0; font-family: 'Space Grotesk', Arial, sans-serif; font-size: 22px; font-weight: 600">Allow your location?</h2>
+<p id="loc-d" style="margin: 0; font-size: 14px; line-height: 1.5; color: #3B4655">It helps us:</p>
+</div>
+<ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; font-size: 14px; line-height: 1.45">
+<li style="display: flex; gap: 10px"><svg style="flex: none; margin-top: 1px" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0E7C6B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>Show the nearest washroom, water, first aid and exit</li>
+<li style="display: flex; gap: 10px"><svg style="flex: none; margin-top: 1px" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0E7C6B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>Send a medic to the right spot when you ask for help</li>
+</ul>
+<p style="margin: 0; background: #E3F1EC; color: #0B5E52; border-radius: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.45">The control room only sees your location when you send a request. We don’t track you around the venue.</p>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<button type="button" style="font: inherit; font-size: 15px; font-weight: 600; color: #FCFCFA; background: #0E7C6B; border: 0; border-radius: 10px; min-height: 48px; cursor: pointer">Allow location</button>
+<button type="button" style="font: inherit; font-size: 15px; font-weight: 500; color: #3B4655; background: transparent; border: 0; border-radius: 10px; min-height: 44px; cursor: pointer">Not now</button>
+</div>
+<p style="margin: 0; text-align: center; font-size: 12px; color: #5B6675">Your browser will ask next. Choose <strong>Allow</strong>.</p>
+</section>
+</div>
+</figure>
+
+<!-- 1b. Location off: banner at the top of Home until location is allowed -->
+<figure style="margin: 0; flex: none; width: 390px; display: flex; flex-direction: column; gap: 12px">
+<figcaption style="font-size: 13px; font-weight: 600; color: #3B4655">1b · Location off (top of Home until allowed)</figcaption>
+<section aria-labelledby="off-h" style="background: #FBF0D9; border-radius: 16px; padding: 14px 16px; display: flex; gap: 12px; align-items: flex-start">
+<svg style="flex: none; margin-top: 2px" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8A5A00" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z"/><path d="M3 3l18 18"/></svg>
+<div style="flex: 1; display: flex; flex-direction: column; gap: 4px"><h2 id="off-h" style="margin: 0; font-size: 14px; font-weight: 600; color: #8A5A00">Location is off</h2><p style="margin: 0; font-size: 13px; line-height: 1.45; color: #5C3D00">Nearest places use the venue entrance, and help requests will ask where you are.</p></div>
+<button type="button" style="flex: none; font: inherit; font-size: 14px; font-weight: 600; color: #8A5A00; background: #FCFCFA; border: 1px solid #E7CF9F; border-radius: 10px; padding: 0 14px; min-height: 44px; cursor: pointer">Turn on</button>
+</section>
+<p style="margin: 0; font-size: 13px; color: #5B6675">If the browser has blocked it, the button opens these steps instead:</p>
+<section aria-labelledby="blk-h" style="background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<h2 id="blk-h" style="margin: 0; font-size: 15px; font-weight: 600">Location is blocked in your browser</h2>
+<ol style="margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.55; color: #3B4655">
+<li>Tap the icon to the left of the web address.</li>
+<li>Open <strong>Permissions</strong> or <strong>Site settings</strong>.</li>
+<li>Set <strong>Location</strong> to <strong>Allow</strong>, then reload.</li>
+</ol>
+<p style="margin: 0; font-size: 13px; color: #5B6675">On iPhone: Settings → Privacy → Location Services → Safari Websites → While Using.</p>
+<button type="button" style="font: inherit; font-size: 15px; font-weight: 600; color: #0E7C6B; background: #FCFCFA; border: 1px solid #D3D9D1; border-radius: 10px; min-height: 44px; cursor: pointer">Pick my area instead</button>
+</section>
+</figure>
+
+<!-- 2. Home: what opens right after scanning the event QR -->
+<figure style="margin: 0; flex: none; display: flex; flex-direction: column; gap: 12px">
+<figcaption style="font-size: 13px; font-weight: 600; color: #3B4655">2 · Home on a phone (opens after scanning the event QR)</figcaption>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F1; display: flex; flex-direction: column; overflow: hidden; border-radius: 28px; box-shadow: 0 2px 12px rgba(20, 32, 46, 0.12)">
+<header style="background: #FCFCFA; border-bottom: 1px solid #E3E6E0; padding: 20px 16px 14px; display: flex; align-items: center; gap: 12px">
+<div style="width: 36px; height: 36px; border-radius: 12px; background: #0E7C6B; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FCFCFA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></div>
+<div style="display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0"><span style="font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">[Event name]</span><span style="font-size: 12px; color: #5B6675">You are Attendee 12</span></div>
+<button type="button" aria-label="Updates, 1 new" style="position: relative; width: 44px; height: 44px; border-radius: 12px; border: 1px solid #E3E6E0; background: #FCFCFA; color: #3B4655; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21h4"/></svg><span style="position: absolute; top: 9px; right: 10px; width: 8px; height: 8px; border-radius: 50%; background: #C2410C; border: 2px solid #FCFCFA"></span></button>
+</header>
+
+<main style="flex: 1; overflow: hidden; padding: 16px; display: flex; flex-direction: column; gap: 16px">
+
+<section aria-labelledby="help-h" style="background: #FBE4DA; border-radius: 16px; padding: 16px; display: flex; align-items: center; gap: 14px">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
+<h2 id="help-h" style="margin: 0; font-size: 16px; font-weight: 600; color: #9A3412">Need medical help?</h2>
+<p style="margin: 0; font-size: 13px; line-height: 1.45; color: #7A2E10">Sends your location to the control room.</p>
+</div>
+<button type="button" style="flex: none; font: inherit; font-size: 15px; font-weight: 600; color: #FCFCFA; background: #C2410C; border: 0; border-radius: 12px; padding: 0 18px; min-height: 48px; cursor: pointer">Get help</button>
+</section>
+
+<section aria-labelledby="near-h" style="display: flex; flex-direction: column; gap: 10px">
+<h2 id="near-h" style="margin: 0; font-size: 14px; font-weight: 600; color: #3B4655">Find nearest</h2>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px">
+<button type="button" style="font: inherit; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 4px; background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 12px; cursor: pointer; color: #14202E; font-size: 12px; font-weight: 500"><span style="width: 36px; height: 36px; border-radius: 10px; background: #E3ECF8; color: #234E86; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="5" r="2"/><circle cx="16" cy="5" r="2"/><path d="M6 21v-6H5l1-6h4l1 6h-1v6M16 9v12M14 9h4"/></svg></span>Washroom</button>
+<button type="button" style="font: inherit; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 4px; background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 12px; cursor: pointer; color: #14202E; font-size: 12px; font-weight: 500"><span style="width: 36px; height: 36px; border-radius: 10px; background: #E1EEF8; color: #2B6CB0; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></svg></span>Water</button>
+<button type="button" style="font: inherit; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 4px; background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 12px; cursor: pointer; color: #14202E; font-size: 12px; font-weight: 500"><span style="width: 36px; height: 36px; border-radius: 10px; background: #FBE4DA; color: #C2410C; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M12 10v6M9 13h6M9 6V4h6v2"/></svg></span>First aid</button>
+<button type="button" style="font: inherit; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 4px; background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 12px; cursor: pointer; color: #14202E; font-size: 12px; font-weight: 500"><span style="width: 36px; height: 36px; border-radius: 10px; background: #E3F1EC; color: #0E7C6B; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h5v16h-5M10 8l-4 4 4 4M6 12h9"/></svg></span>Exit</button>
+</div>
+</section>
+
+<section aria-labelledby="crowd-h" style="background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: baseline; justify-content: space-between"><h2 id="crowd-h" style="margin: 0; font-size: 15px; font-weight: 600">How busy is it?</h2><span style="font-size: 12px; color: #5B6675">Updated 1 min ago</span></div>
+<ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; font-size: 14px">
+<li style="display: flex; align-items: center; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid #ECEFE9"><span>Main stage</span><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #9A3412; background: #FBE4DA; border-radius: 6px; padding: 3px 8px"><span style="width: 6px; height: 6px; border-radius: 50%; background: #C2410C"></span>Very crowded</span></li>
+<li style="display: flex; align-items: center; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid #ECEFE9"><span>Food court</span><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #8A5A00; background: #FBF0D9; border-radius: 6px; padding: 3px 8px"><span style="width: 6px; height: 6px; border-radius: 50%; background: #D99A2B"></span>Busy</span></li>
+<li style="display: flex; align-items: center; justify-content: space-between; padding: 9px 0"><span>Gate 2</span><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #0B5E52; background: #E3F1EC; border-radius: 6px; padding: 3px 8px"><span style="width: 6px; height: 6px; border-radius: 50%; background: #0E7C6B"></span>Quiet</span></li>
+</ul>
+</section>
+
+<section aria-labelledby="upd-h" style="background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 16px; padding: 14px 16px; display: flex; gap: 12px; align-items: flex-start">
+<span style="flex: none; width: 32px; height: 32px; border-radius: 10px; background: #E3F1EC; color: #0E7C6B; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1zM16 9a4 4 0 0 1 0 6"/></svg></span>
+<div style="display: flex; flex-direction: column; gap: 3px"><h2 id="upd-h" style="margin: 0; font-size: 12px; font-weight: 600; color: #5B6675">From the organisers · 7:42 PM</h2><p style="margin: 0; font-size: 14px; line-height: 1.45">Gate 3 is closed. Please use Gate 2 to leave after the show.</p></div>
+</section>
+
+<button type="button" style="font: inherit; display: flex; align-items: center; gap: 12px; text-align: left; padding: 12px 14px; background: #FCFCFA; border: 1px solid #D3D9D1; border-radius: 999px; color: #5B6675; font-size: 15px; cursor: pointer; min-height: 48px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0E7C6B" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.8 7L4 20l1-4.8A8 8 0 1 1 21 12z"/></svg>Ask the assistant anything…</button>
+</main>
+
+<nav aria-label="Attendee sections" style="background: #FCFCFA; border-top: 1px solid #E3E6E0; padding: 8px 8px 22px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr))">
+<a href="#" aria-current="page" style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 0; text-decoration: none; color: #0B5E52; font-size: 12px; font-weight: 600"><span style="width: 52px; height: 28px; border-radius: 999px; background: #E3F1EC; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg></span>Home</a>
+<a href="#" style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 0; text-decoration: none; color: #5B6675; font-size: 12px; font-weight: 500"><span style="width: 52px; height: 28px; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.8 7L4 20l1-4.8A8 8 0 1 1 21 12z"/></svg></span>Assistant</a>
+<a href="#" style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 0; text-decoration: none; color: #5B6675; font-size: 12px; font-weight: 500"><span style="width: 52px; height: 28px; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg></span>Map</a>
+<a href="#" style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 0; text-decoration: none; color: #5B6675; font-size: 12px; font-weight: 500"><span style="width: 52px; height: 28px; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span>My reports</a>
+</nav>
+</div>
+</figure>
+
+<!-- 3. My reports: what the attendee has sent and what happened to it -->
+<figure style="margin: 0; flex: none; display: flex; flex-direction: column; gap: 12px">
+<figcaption style="font-size: 13px; font-weight: 600; color: #3B4655">3 · My reports (status of what they sent)</figcaption>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F1; display: flex; flex-direction: column; overflow: hidden; border-radius: 28px; box-shadow: 0 2px 12px rgba(20, 32, 46, 0.12)">
+<header style="background: #FCFCFA; border-bottom: 1px solid #E3E6E0; padding: 20px 16px 14px; display: flex; flex-direction: column; gap: 2px">
+<h1 style="margin: 0; font-family: 'Space Grotesk', Arial, sans-serif; font-size: 22px; font-weight: 600">My reports</h1>
+<span style="font-size: 12px; color: #5B6675">Only you and the control room can see these.</span>
+</header>
+<main style="flex: 1; overflow: hidden; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+
+<article style="background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px"><h2 style="margin: 0; font-size: 15px; font-weight: 600">Medical help</h2><span style="font-size: 12px; font-weight: 600; color: #234E86; background: #E3ECF8; border-radius: 6px; padding: 3px 8px">Help on the way</span></div>
+<p style="margin: 0; font-size: 14px; line-height: 1.45; color: #3B4655">Possible broken nose, bleeding · Main stage, left side</p>
+<div style="background: #E3ECF8; color: #1D3F6E; border-radius: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.45">A medic from First aid post 1 is coming to you. Stay where you are.</div>
+<span style="font-size: 12px; color: #5B6675">Sent 7:51 PM · updated 7:53 PM</span>
+</article>
+
+<article style="background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px"><h2 style="margin: 0; font-size: 15px; font-weight: 600">Lost item</h2><span style="font-size: 12px; font-weight: 600; color: #8A5A00; background: #FBF0D9; border-radius: 6px; padding: 3px 8px">Not sent yet</span></div>
+<p style="margin: 0; font-size: 14px; line-height: 1.45; color: #3B4655">Black wallet · near the food court</p>
+<span style="font-size: 12px; color: #5B6675">No signal. We’ll send it as soon as you’re back online.</span>
+</article>
+
+<article style="background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px"><h2 style="margin: 0; font-size: 15px; font-weight: 600">Lost item</h2><span style="font-size: 12px; font-weight: 600; color: #0B5E52; background: #E3F1EC; border-radius: 6px; padding: 3px 8px">Resolved</span></div>
+<p style="margin: 0; font-size: 14px; line-height: 1.45; color: #3B4655">Blue water bottle · Gate 2</p>
+<span style="font-size: 12px; color: #5B6675">Collect it at the Lost and found desk, Gate 1.</span>
+</article>
+</main>
+
+<nav aria-label="Attendee sections" style="background: #FCFCFA; border-top: 1px solid #E3E6E0; padding: 8px 8px 22px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr))">
+<a href="#" style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 0; text-decoration: none; color: #5B6675; font-size: 12px; font-weight: 500"><span style="width: 52px; height: 28px; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg></span>Home</a>
+<a href="#" style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 0; text-decoration: none; color: #5B6675; font-size: 12px; font-weight: 500"><span style="width: 52px; height: 28px; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.8 7L4 20l1-4.8A8 8 0 1 1 21 12z"/></svg></span>Assistant</a>
+<a href="#" style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 0; text-decoration: none; color: #5B6675; font-size: 12px; font-weight: 500"><span style="width: 52px; height: 28px; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg></span>Map</a>
+<a href="#" aria-current="page" style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 0; text-decoration: none; color: #0B5E52; font-size: 12px; font-weight: 600"><span style="width: 52px; height: 28px; border-radius: 999px; background: #E3F1EC; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span>My reports</a>
+</nav>
+</div>
+</figure>
+
+<!-- 4. Tablet (640–1023 px): nav moves to a left rail, cards go two across -->
+<figure style="margin: 0; flex: none; display: flex; flex-direction: column; gap: 12px">
+<figcaption style="font-size: 13px; font-weight: 600; color: #3B4655">4 · Home on a tablet, 820 × 1180 (640–1023 px: left rail, two columns)</figcaption>
+<div style="width: 820px; height: 1180px; box-sizing: border-box; background: #F4F5F1; display: flex; overflow: hidden; border-radius: 28px; box-shadow: 0 2px 12px rgba(20, 32, 46, 0.12)">
+<nav aria-label="Attendee sections" style="flex: none; width: 96px; background: #FCFCFA; border-right: 1px solid #E3E6E0; padding: 24px 0; display: flex; flex-direction: column; align-items: center; gap: 8px">
+<div style="width: 40px; height: 40px; border-radius: 12px; background: #0E7C6B; display: flex; align-items: center; justify-content: center; margin-bottom: 16px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FCFCFA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></div>
+<a href="#" aria-current="page" style="width: 80px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0; text-decoration: none; color: #0B5E52; font-size: 12px; font-weight: 600"><span style="width: 56px; height: 32px; border-radius: 999px; background: #E3F1EC; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg></span>Home</a>
+<a href="#" style="width: 80px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0; text-decoration: none; color: #5B6675; font-size: 12px; font-weight: 500"><span style="width: 56px; height: 32px; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.8 7L4 20l1-4.8A8 8 0 1 1 21 12z"/></svg></span>Assistant</a>
+<a href="#" style="width: 80px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0; text-decoration: none; color: #5B6675; font-size: 12px; font-weight: 500"><span style="width: 56px; height: 32px; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg></span>Map</a>
+<a href="#" style="width: 80px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0; text-decoration: none; color: #5B6675; font-size: 12px; font-weight: 500"><span style="width: 56px; height: 32px; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span>My reports</a>
+</nav>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+<header style="background: #FCFCFA; border-bottom: 1px solid #E3E6E0; padding: 24px 28px 18px; display: flex; align-items: center; gap: 12px">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-family: 'Space Grotesk', Arial, sans-serif; font-size: 22px; font-weight: 600">[Event name]</span><span style="font-size: 13px; color: #5B6675">You are Attendee 12</span></div>
+<button type="button" aria-label="Updates, 1 new" style="position: relative; width: 44px; height: 44px; border-radius: 12px; border: 1px solid #E3E6E0; background: #FCFCFA; color: #3B4655; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21h4"/></svg><span style="position: absolute; top: 9px; right: 10px; width: 8px; height: 8px; border-radius: 50%; background: #C2410C; border: 2px solid #FCFCFA"></span></button>
+</header>
+<main style="padding: 24px 28px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-content: start">
+<section style="grid-column: 1 / -1; background: #FBE4DA; border-radius: 16px; padding: 20px; display: flex; align-items: center; gap: 16px">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 4px"><h2 style="margin: 0; font-size: 18px; font-weight: 600; color: #9A3412">Need medical help?</h2><p style="margin: 0; font-size: 14px; color: #7A2E10">Sends your location to the control room.</p></div>
+<button type="button" style="flex: none; font: inherit; font-size: 15px; font-weight: 600; color: #FCFCFA; background: #C2410C; border: 0; border-radius: 12px; padding: 0 24px; min-height: 48px; cursor: pointer">Get help</button>
+</section>
+<section style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-size: 14px; font-weight: 600; color: #3B4655">Find nearest</h2>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+<button type="button" style="font: inherit; display: flex; align-items: center; gap: 12px; padding: 14px; background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 12px; color: #14202E; font-size: 14px; font-weight: 500; cursor: pointer"><span style="width: 36px; height: 36px; border-radius: 10px; background: #E3ECF8; color: #234E86; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="5" r="2"/><circle cx="16" cy="5" r="2"/><path d="M6 21v-6H5l1-6h4l1 6h-1v6M16 9v12M14 9h4"/></svg></span>Washroom</button>
+<button type="button" style="font: inherit; display: flex; align-items: center; gap: 12px; padding: 14px; background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 12px; color: #14202E; font-size: 14px; font-weight: 500; cursor: pointer"><span style="width: 36px; height: 36px; border-radius: 10px; background: #E1EEF8; color: #2B6CB0; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></svg></span>Water</button>
+<button type="button" style="font: inherit; display: flex; align-items: center; gap: 12px; padding: 14px; background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 12px; color: #14202E; font-size: 14px; font-weight: 500; cursor: pointer"><span style="width: 36px; height: 36px; border-radius: 10px; background: #FBE4DA; color: #C2410C; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M12 10v6M9 13h6M9 6V4h6v2"/></svg></span>First aid</button>
+<button type="button" style="font: inherit; display: flex; align-items: center; gap: 12px; padding: 14px; background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 12px; color: #14202E; font-size: 14px; font-weight: 500; cursor: pointer"><span style="width: 36px; height: 36px; border-radius: 10px; background: #E3F1EC; color: #0E7C6B; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h5v16h-5M10 8l-4 4 4 4M6 12h9"/></svg></span>Exit</button>
+</div>
+</section>
+<section style="background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: baseline; justify-content: space-between"><h2 style="margin: 0; font-size: 16px; font-weight: 600">How busy is it?</h2><span style="font-size: 12px; color: #5B6675">Updated 1 min ago</span></div>
+<ul style="list-style: none; margin: 0; padding: 0; font-size: 14px">
+<li style="display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #ECEFE9"><span>Main stage</span><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #9A3412; background: #FBE4DA; border-radius: 6px; padding: 3px 8px"><span style="width: 6px; height: 6px; border-radius: 50%; background: #C2410C"></span>Very crowded</span></li>
+<li style="display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #ECEFE9"><span>Food court</span><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #8A5A00; background: #FBF0D9; border-radius: 6px; padding: 3px 8px"><span style="width: 6px; height: 6px; border-radius: 50%; background: #D99A2B"></span>Busy</span></li>
+<li style="display: flex; align-items: center; justify-content: space-between; padding: 10px 0"><span>Gate 2</span><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #0B5E52; background: #E3F1EC; border-radius: 6px; padding: 3px 8px"><span style="width: 6px; height: 6px; border-radius: 50%; background: #0E7C6B"></span>Quiet</span></li>
+</ul>
+</section>
+<div style="display: flex; flex-direction: column; gap: 20px">
+<section style="background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 16px; padding: 16px 18px; display: flex; gap: 12px; align-items: flex-start">
+<span style="flex: none; width: 32px; height: 32px; border-radius: 10px; background: #E3F1EC; color: #0E7C6B; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1zM16 9a4 4 0 0 1 0 6"/></svg></span>
+<div style="display: flex; flex-direction: column; gap: 3px"><h2 style="margin: 0; font-size: 12px; font-weight: 600; color: #5B6675">From the organisers · 7:42 PM</h2><p style="margin: 0; font-size: 14px; line-height: 1.45">Gate 3 is closed. Please use Gate 2 to leave after the show.</p></div>
+</section>
+<button type="button" style="font: inherit; display: flex; align-items: center; gap: 12px; text-align: left; padding: 12px 16px; background: #FCFCFA; border: 1px solid #D3D9D1; border-radius: 999px; color: #5B6675; font-size: 15px; min-height: 48px; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0E7C6B" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.8 7L4 20l1-4.8A8 8 0 1 1 21 12z"/></svg>Ask the assistant anything…</button>
+</div>
+</main>
+</div>
+</div>
+</figure>
+
+<!-- 5. Laptop (1024 px and up): labelled sidebar, content capped at 1040 px -->
+<figure style="margin: 0; flex: none; display: flex; flex-direction: column; gap: 12px">
+<figcaption style="font-size: 13px; font-weight: 600; color: #3B4655">5 · Home on a laptop, 1280 × 800 (1024 px and up: labelled sidebar, content max 1040 px)</figcaption>
+<div style="width: 1280px; height: 800px; box-sizing: border-box; background: #F4F5F1; display: flex; overflow: hidden; border-radius: 14px; box-shadow: 0 2px 12px rgba(20, 32, 46, 0.12)">
+<nav aria-label="Attendee sections" style="flex: none; width: 232px; background: #FCFCFA; border-right: 1px solid #E3E6E0; padding: 24px 16px; display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; align-items: center; gap: 10px; padding: 0 8px; margin-bottom: 20px"><span style="width: 36px; height: 36px; border-radius: 12px; background: #0E7C6B; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FCFCFA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span style="font-family: 'Space Grotesk', Arial, sans-serif; font-size: 18px; font-weight: 600">Dristhi</span></div>
+<a href="#" aria-current="page" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; background: #E3F1EC; color: #0B5E52; text-decoration: none; font-size: 14px; font-weight: 600"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>Home</a>
+<a href="#" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; color: #3B4655; text-decoration: none; font-size: 14px; font-weight: 500"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.8 7L4 20l1-4.8A8 8 0 1 1 21 12z"/></svg>Assistant</a>
+<a href="#" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; color: #3B4655; text-decoration: none; font-size: 14px; font-weight: 500"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg>Map</a>
+<a href="#" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; color: #3B4655; text-decoration: none; font-size: 14px; font-weight: 500"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>My reports</a>
+<div style="margin-top: auto; padding: 12px; border-top: 1px solid #ECEFE9; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; font-weight: 600">Attendee 12</span><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #0B5E52"><span style="width: 6px; height: 6px; border-radius: 50%; background: #0E7C6B"></span>Location on</span></div>
+</nav>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+<header style="background: #FCFCFA; border-bottom: 1px solid #E3E6E0; padding: 18px 32px; display: flex; align-items: center; gap: 12px">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-family: 'Space Grotesk', Arial, sans-serif; font-size: 24px; font-weight: 600">[Event name]</span><span style="font-size: 13px; color: #5B6675">[Venue] · [City]</span></div>
+<button type="button" aria-label="Updates, 1 new" style="position: relative; width: 44px; height: 44px; border-radius: 12px; border: 1px solid #E3E6E0; background: #FCFCFA; color: #3B4655; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21h4"/></svg><span style="position: absolute; top: 9px; right: 10px; width: 8px; height: 8px; border-radius: 50%; background: #C2410C; border: 2px solid #FCFCFA"></span></button>
+</header>
+<main style="padding: 28px 32px; width: 100%; max-width: 1040px; box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 24px; align-content: start">
+<div style="display: flex; flex-direction: column; gap: 24px">
+<section style="background: #FBE4DA; border-radius: 16px; padding: 20px; display: flex; align-items: center; gap: 16px">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 4px"><h2 style="margin: 0; font-size: 18px; font-weight: 600; color: #9A3412">Need medical help?</h2><p style="margin: 0; font-size: 14px; color: #7A2E10">Sends your location to the control room.</p></div>
+<button type="button" style="flex: none; font: inherit; font-size: 15px; font-weight: 600; color: #FCFCFA; background: #C2410C; border: 0; border-radius: 12px; padding: 0 24px; min-height: 48px; cursor: pointer">Get help</button>
+</section>
+<section style="display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-size: 14px; font-weight: 600; color: #3B4655">Find nearest</h2>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+<button type="button" style="font: inherit; display: flex; align-items: center; gap: 12px; padding: 14px; background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 12px; color: #14202E; font-size: 14px; font-weight: 500; text-align: left; cursor: pointer"><span style="width: 36px; height: 36px; border-radius: 10px; background: #E3ECF8; color: #234E86; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="5" r="2"/><circle cx="16" cy="5" r="2"/><path d="M6 21v-6H5l1-6h4l1 6h-1v6M16 9v12M14 9h4"/></svg></span><span style="display: flex; flex-direction: column"><span>Washroom</span><span style="font-size: 12px; color: #5B6675">2 min walk</span></span></button>
+<button type="button" style="font: inherit; display: flex; align-items: center; gap: 12px; padding: 14px; background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 12px; color: #14202E; font-size: 14px; font-weight: 500; text-align: left; cursor: pointer"><span style="width: 36px; height: 36px; border-radius: 10px; background: #E1EEF8; color: #2B6CB0; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></svg></span><span style="display: flex; flex-direction: column"><span>Water</span><span style="font-size: 12px; color: #5B6675">1 min walk</span></span></button>
+<button type="button" style="font: inherit; display: flex; align-items: center; gap: 12px; padding: 14px; background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 12px; color: #14202E; font-size: 14px; font-weight: 500; text-align: left; cursor: pointer"><span style="width: 36px; height: 36px; border-radius: 10px; background: #FBE4DA; color: #C2410C; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M12 10v6M9 13h6M9 6V4h6v2"/></svg></span><span style="display: flex; flex-direction: column"><span>First aid</span><span style="font-size: 12px; color: #5B6675">4 min walk</span></span></button>
+<button type="button" style="font: inherit; display: flex; align-items: center; gap: 12px; padding: 14px; background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 12px; color: #14202E; font-size: 14px; font-weight: 500; text-align: left; cursor: pointer"><span style="width: 36px; height: 36px; border-radius: 10px; background: #E3F1EC; color: #0E7C6B; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h5v16h-5M10 8l-4 4 4 4M6 12h9"/></svg></span><span style="display: flex; flex-direction: column"><span>Exit</span><span style="font-size: 12px; color: #5B6675">Gate 2 · 3 min walk</span></span></button>
+</div>
+</section>
+<button type="button" style="font: inherit; display: flex; align-items: center; gap: 12px; text-align: left; padding: 12px 16px; background: #FCFCFA; border: 1px solid #D3D9D1; border-radius: 999px; color: #5B6675; font-size: 15px; min-height: 48px; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0E7C6B" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.8 7L4 20l1-4.8A8 8 0 1 1 21 12z"/></svg>Ask the assistant anything…</button>
+</div>
+<div style="display: flex; flex-direction: column; gap: 24px">
+<section style="background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: baseline; justify-content: space-between"><h2 style="margin: 0; font-size: 16px; font-weight: 600">How busy is it?</h2><span style="font-size: 12px; color: #5B6675">Updated 1 min ago</span></div>
+<ul style="list-style: none; margin: 0; padding: 0; font-size: 14px">
+<li style="display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #ECEFE9"><span>Main stage</span><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #9A3412; background: #FBE4DA; border-radius: 6px; padding: 3px 8px"><span style="width: 6px; height: 6px; border-radius: 50%; background: #C2410C"></span>Very crowded</span></li>
+<li style="display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #ECEFE9"><span>Food court</span><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #8A5A00; background: #FBF0D9; border-radius: 6px; padding: 3px 8px"><span style="width: 6px; height: 6px; border-radius: 50%; background: #D99A2B"></span>Busy</span></li>
+<li style="display: flex; align-items: center; justify-content: space-between; padding: 10px 0"><span>Gate 2</span><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #0B5E52; background: #E3F1EC; border-radius: 6px; padding: 3px 8px"><span style="width: 6px; height: 6px; border-radius: 50%; background: #0E7C6B"></span>Quiet</span></li>
+</ul>
+</section>
+<section style="background: #FCFCFA; border: 1px solid #E3E6E0; border-radius: 16px; padding: 16px 18px; display: flex; gap: 12px; align-items: flex-start">
+<span style="flex: none; width: 32px; height: 32px; border-radius: 10px; background: #E3F1EC; color: #0E7C6B; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1zM16 9a4 4 0 0 1 0 6"/></svg></span>
+<div style="display: flex; flex-direction: column; gap: 3px"><h2 style="margin: 0; font-size: 12px; font-weight: 600; color: #5B6675">From the organisers · 7:42 PM</h2><p style="margin: 0; font-size: 14px; line-height: 1.45">Gate 3 is closed. Please use Gate 2 to leave after the show.</p></div>
+</section>
+</div>
+</main>
+</div>
+</div>
+</figure>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":3900,"height":1300}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
