@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import cv2
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import threading
 import time
 import numpy as np
@@ -25,6 +25,7 @@ for _stream in (sys.stdout, sys.stderr):
 
 from crowd_counter import load_counter, render_density_overlay
 from forecast import forecast_feed
+from dristhi.config import cors_origins
 from dristhi.errors import register_error_handlers
 from dristhi.routers import attendees as attendees_router
 from dristhi.routers import venue as venue_router
@@ -310,7 +311,7 @@ class FeedProcessor:
         return self.cap.retrieve()
 
     def _log_data(self, count, captured_at):
-        timestamp = datetime.fromtimestamp(captured_at)
+        timestamp = datetime.fromtimestamp(captured_at, timezone.utc)
         density_percentage = (count / self.config['max_capacity']) * 100
 
         alert_level = "normal"
@@ -393,7 +394,7 @@ app = FastAPI(title="Crowd Monitoring API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -431,7 +432,7 @@ async def health_check():
     return {
         "status": "healthy",
         "model": counter.name,
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "active_feeds": len([f for f in feed_processors.values() if f.running])
     }
 
@@ -448,7 +449,7 @@ async def get_all_feeds():
     return {
         "feeds": feeds,
         "total_count": sum(feed.get("current_count", 0) for feed in feeds_data.values()),
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
 
@@ -459,7 +460,7 @@ async def get_feed_details(feed_id: str):
     return {
         "feed": feeds_data[feed_id],
         "recent_analytics": list(analytics_data[feed_id])[-10:],
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
 
@@ -478,7 +479,7 @@ async def check_feed_health(feed_id: str):
                 "status": "healthy" if ret else "unhealthy",
                 "accessible": True,
                 "can_read_frame": ret,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             }
         else:
             cap.release()
@@ -487,7 +488,7 @@ async def check_feed_health(feed_id: str):
                 "status": "unhealthy",
                 "accessible": False,
                 "can_read_frame": False,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             }
     except Exception as e:
         return {
@@ -495,7 +496,7 @@ async def check_feed_health(feed_id: str):
             "status": "error",
             "accessible": False,
             "error": str(e),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
 
 
@@ -694,7 +695,7 @@ async def get_analytics_summary():
     for feed in feeds_data.values():
         alert_counts[feed.get("alert_level", "normal")] += 1
 
-    one_hour_ago = datetime.now() - timedelta(hours=1)
+    one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
     trend_data = []
     for feed_id, data_points in analytics_data.items():
         for point in data_points:
@@ -714,7 +715,7 @@ async def get_analytics_summary():
             "active_feeds": len([f for f in feed_processors.values() if f.running])
         },
         "trend_data": trend_data,
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
 
@@ -733,13 +734,14 @@ async def get_current_alerts():
         }
         for fid, data in feeds_data.items()
     ]
-    return {"alerts": alerts, "count": len(alerts), "timestamp": datetime.now().isoformat()}
+    return {"alerts": alerts, "count": len(alerts), "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 @app.get("/api/heatmap")
 async def get_heatmap_data():
     heatmap_data = [
         {
+            "feed_id": feed_id,
             "location": data["location"],
             "intensity": data.get("density_percentage", 0),
             "count": data.get("current_count", 0),
@@ -747,9 +749,9 @@ async def get_heatmap_data():
             "name": data["name"],
             "alert_level": data.get("alert_level", "normal")
         }
-        for data in feeds_data.values()
+        for feed_id, data in feeds_data.items()
     ]
-    return {"heatmap": heatmap_data, "timestamp": datetime.now().isoformat()}
+    return {"heatmap": heatmap_data, "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 @app.get("/api/predictions")
@@ -783,7 +785,7 @@ async def get_crowd_predictions():
             "samples": f.samples,
             "window_minutes": f.window_minutes,
         }
-    return {"predictions": predictions, "timestamp": datetime.now().isoformat()}
+    return {"predictions": predictions, "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 @app.get("/api/export/csv")
@@ -805,7 +807,7 @@ async def export_data_csv():
             content=buffer.read(),
             media_type="text/csv",
             headers={
-                "Content-Disposition": f"attachment; filename=crowd_analytics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+                "Content-Disposition": f"attachment; filename=crowd_analytics_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv"
             }
         )
     except Exception as e:
@@ -818,7 +820,7 @@ async def start_monitoring():
         for processor in feed_processors.values():
             if not processor.running:
                 processor.start_processing()
-        return {"message": "Monitoring started", "timestamp": datetime.now().isoformat()}
+        return {"message": "Monitoring started", "timestamp": datetime.now(timezone.utc).isoformat()}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
@@ -828,7 +830,7 @@ async def stop_monitoring():
     try:
         for processor in feed_processors.values():
             processor.stop_processing()
-        return {"message": "Monitoring stopped", "timestamp": datetime.now().isoformat()}
+        return {"message": "Monitoring stopped", "timestamp": datetime.now(timezone.utc).isoformat()}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
@@ -862,7 +864,7 @@ async def stream_updates():
         while True:
             data = {
                 "feeds": feeds_data,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             }
             yield f"data: {json.dumps(data)}\n\n"
             time.sleep(2)
