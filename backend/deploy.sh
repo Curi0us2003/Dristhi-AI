@@ -61,7 +61,8 @@ gcloud builds submit --tag "$IMAGE" .
 
 echo "Deploying to Cloud Run..."
 # One instance only: crowd counts live in process memory until task 03 moves them out.
-# --timeout 3600 keeps MJPEG camera streams open for up to an hour.
+# --timeout 3600 keeps MJPEG camera streams open for up to an hour; --concurrency 1000 because
+# open streams are cheap async tasks (shared frames) but each one still holds a request slot.
 # ^@^ makes "@" the list separator, because CORS_ORIGINS itself contains commas.
 gcloud run deploy "$SERVICE_NAME" \
   --image "$IMAGE" \
@@ -73,6 +74,7 @@ gcloud run deploy "$SERVICE_NAME" \
   --max-instances 1 \
   --no-cpu-throttling \
   --timeout 3600 \
+  --concurrency 1000 \
   --port 8080 \
   --allow-unauthenticated \
   --add-cloudsql-instances "$SQL_INSTANCE" \

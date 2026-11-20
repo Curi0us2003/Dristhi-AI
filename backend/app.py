@@ -361,6 +361,9 @@ for feed_id, config in CCTV_FEEDS.items():
 # ─────────────────────────────────────────────────────────────
 PREVIEW_FPS = float(os.environ.get("PREVIEW_FPS", "4"))   # JPEGs per second per camera
 PREVIEW_WIDTH = 640
+# An MJPEG stream ends itself after this long; the browser reopens it if still watching.
+# Behind Cloud Run a viewer leaving is not always seen, and an open stream holds a request slot.
+STREAM_MAX_SECONDS = float(os.environ.get("STREAM_MAX_SECONDS", "120"))
 
 
 class PreviewReader:
@@ -593,7 +596,8 @@ async def get_video_stream(feed_id: str, request: Request, overlay: bool = False
 
     async def frames():
         last = None
-        while not await request.is_disconnected():
+        ends = time.time() + STREAM_MAX_SECONDS
+        while time.time() < ends and not await request.is_disconnected():
             jpeg = reader.frame(overlay)
             if jpeg is not None and jpeg is not last:
                 last = jpeg

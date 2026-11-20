@@ -57,6 +57,7 @@ gcloud run deploy $ServiceName `
     --max-instances 1 `
     --no-cpu-throttling `
     --timeout 3600 `
+    --concurrency 1000 `
     --port 8080 `
     --allow-unauthenticated `
     --add-cloudsql-instances $SqlInstance `
