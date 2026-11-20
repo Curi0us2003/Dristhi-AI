@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Header from "@/components/header";
 import MainNav from "@/components/main-nav";
 import { useAuth } from "@/contexts/auth-context";
+import { EventProvider } from "@/contexts/event-context";
+import EventSwitcher from "@/components/admin/event-switcher";
 import { Loader2 } from "lucide-react";
 
 export default function AppLayout({
@@ -34,12 +36,17 @@ export default function AppLayout({
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <Header />
-      <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-        <MainNav />
-        <main>{children}</main>
+    <EventProvider>
+      <div className="flex min-h-screen flex-col">
+        <Header />
+        <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <MainNav />
+            <EventSwitcher />
+          </div>
+          <main>{children}</main>
+        </div>
       </div>
-    </div>
+    </EventProvider>
   );
 }

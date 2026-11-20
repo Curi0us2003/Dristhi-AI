@@ -1,0 +1,161 @@
+# Hackathon build: any signed-in user may call these. Tighten to an admin check before a real event.
+
+mutation CreateEvent(
+  $name: String!
+  $venue: String!
+  $city: String
+  $startsAt: Timestamp
+  $endsAt: Timestamp
+  $warningPct: Int!
+  $criticalPct: Int!
+  $peoplePerGuard: Int!
+) @auth(level: USER) {
+  event_insert(
+    data: {
+      name: $name
+      venue: $venue
+      city: $city
+      startsAt: $startsAt
+      endsAt: $endsAt
+      warningPct: $warningPct
+      criticalPct: $criticalPct
+      peoplePerGuard: $peoplePerGuard
+    }
+  )
+}
+
+mutation UpdateEvent(
+  $id: UUID!
+  $name: String!
+  $venue: String!
+  $city: String
+  $startsAt: Timestamp
+  $endsAt: Timestamp
+  $status: String!
+  $warningPct: Int!
+  $criticalPct: Int!
+  $peoplePerGuard: Int!
+) @auth(level: USER) {
+  event_update(
+    id: $id
+    data: {
+      name: $name
+      venue: $venue
+      city: $city
+      startsAt: $startsAt
+      endsAt: $endsAt
+      status: $status
+      warningPct: $warningPct
+      criticalPct: $criticalPct
+      peoplePerGuard: $peoplePerGuard
+    }
+  )
+}
+
+mutation CreateZone(
+  $eventId: UUID!
+  $name: String!
+  $capacity: Int!
+  $minGuards: Int!
+  $feedId: String
+) @auth(level: USER) {
+  zone_insert(
+    data: {
+      eventId: $eventId
+      name: $name
+      capacity: $capacity
+      minGuards: $minGuards
+      feedId: $feedId
+    }
+  )
+}
+
+mutation UpdateZone(
+  $id: UUID!
+  $name: String!
+  $capacity: Int!
+  $minGuards: Int!
+  $feedId: String
+) @auth(level: USER) {
+  zone_update(
+    id: $id
+    data: { name: $name, capacity: $capacity, minGuards: $minGuards, feedId: $feedId }
+  )
+}
+
+"Unassigns staff, removes dispatches that mention the zone, then deletes it."
+mutation DeleteZone($id: UUID!) @auth(level: USER) @transaction {
+  staffMember_updateMany(where: { zoneId: { eq: $id } }, data: { zoneId: null })
+  dispatch_deleteMany(
+    where: { _or: [{ fromZoneId: { eq: $id } }, { toZoneId: { eq: $id } }] }
+  )
+  zone_delete(id: $id)
+}
+
+mutation CreateStaff(
+  $eventId: UUID!
+  $name: String!
+  $phone: String
+  $kind: String!
+  $zoneId: UUID
+) @auth(level: USER) {
+  staffMember_insert(
+    data: { eventId: $eventId, name: $name, phone: $phone, kind: $kind, zoneId: $zoneId }
+  )
+}
+
+mutation UpdateStaff(
+  $id: UUID!
+  $name: String!
+  $phone: String
+  $kind: String!
+  $status: String!
+  $zoneId: UUID
+) @auth(level: USER) {
+  staffMember_update(
+    id: $id
+    data: { name: $name, phone: $phone, kind: $kind, status: $status, zoneId: $zoneId }
+  )
+}
+
+mutation SetStaffStatus($id: UUID!, $status: String!) @auth(level: USER) {
+  staffMember_update(id: $id, data: { status: $status })
+}
+
+mutation DeleteStaff($id: UUID!) @auth(level: USER) @transaction {
+  dispatch_deleteMany(where: { staffId: { eq: $id } })
+  staffMember_delete(id: $id)
+}
+
+"Moves a staff member to another zone and logs it (used by Approve on a suggestion)."
+mutation MoveStaff(
+  $eventId: UUID!
+  $staffId: UUID!
+  $fromZoneId: UUID
+  $toZoneId: UUID!
+  $reason: String!
+) @auth(level: USER) @transaction {
+  staffMember_update(id: $staffId, data: { zoneId: $toZoneId, status: "dispatched" })
+  dispatch_insert(
+    data: {
+      eventId: $eventId
+      staffId: $staffId
+      fromZoneId: $fromZoneId
+      toZoneId: $toZoneId
+      reason: $reason
+    }
+  )
+}
+
+"Sends a staff member to a Firestore grievance and logs it."
+mutation AssignStaffToGrievance(
+  $eventId: UUID!
+  $staffId: UUID!
+  $grievanceId: String!
+  $reason: String!
+) @auth(level: USER) @transaction {
+  staffMember_update(id: $staffId, data: { status: "on_scene" })
+  dispatch_insert(
+    data: { eventId: $eventId, staffId: $staffId, grievanceId: $grievanceId, reason: $reason }
+  )
+}

@@ -51,7 +51,7 @@ function UserProfileDisplay() {
 
   return (
     <div className="flex items-center gap-3">
-      <div className="text-right">
+      <div className="hidden text-right sm:block">
         <div className="font-semibold text-sm">{user.fullName}</div>
         <div className="text-xs text-muted-foreground">{user.email}</div>
       </div>
@@ -85,7 +85,9 @@ export default function Header() {
             </span>
             <span className="text-sm text-muted-foreground hidden md:block">System Online</span>
           </div>
-          <Clock />
+          <div className="hidden sm:block">
+            <Clock />
+          </div>
           <ThemeToggle />
           <UserProfileDisplay />
         </div>

@@ -1,0 +1,64 @@
+# Hackathon build: any signed-in user may call these. Tighten to an admin check before a real event.
+
+query ListEvents @auth(level: USER) {
+  events(orderBy: [{ createdAt: DESC }]) {
+    id
+    name
+    venue
+    city
+    startsAt
+    endsAt
+    status
+    warningPct
+    criticalPct
+    peoplePerGuard
+  }
+}
+
+query ListZones($eventId: UUID!) @auth(level: USER) {
+  zones(where: { eventId: { eq: $eventId } }, orderBy: [{ name: ASC }]) {
+    id
+    name
+    capacity
+    minGuards
+    feedId
+  }
+}
+
+query ListStaff($eventId: UUID!) @auth(level: USER) {
+  staffMembers(where: { eventId: { eq: $eventId } }, orderBy: [{ name: ASC }]) {
+    id
+    name
+    phone
+    kind
+    status
+    zone {
+      id
+      name
+    }
+  }
+}
+
+query ListDispatches($eventId: UUID!) @auth(level: USER) {
+  dispatches(
+    where: { eventId: { eq: $eventId } }
+    orderBy: [{ createdAt: DESC }]
+    limit: 20
+  ) {
+    id
+    reason
+    grievanceId
+    createdAt
+    staff {
+      id
+      name
+      kind
+    }
+    fromZone {
+      name
+    }
+    toZone {
+      name
+    }
+  }
+}
