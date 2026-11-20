@@ -37,7 +37,7 @@ frontend/           Next.js 15 static export (App Router), Tailwind + shadcn/ui
   src/app/(app)/    operator pages: dashboard, live-feed, alerts, map-view, grievances
   src/app/user/     attendee dashboard
   src/ai/           Gemini calls (moving to the backend in task 08)
-  src/lib/          firebase.ts, auth-service.ts, backend-url.ts
+  src/lib/          firebase.js, auth-service.js, backend-url.js
   functions/        Cloud Function proxy for /api/** (removed in task 02)
 docs/architecture.md   target architecture, data model, API and auth rules
 docs/design/           design tokens + HTML mockups of the redesigned screens
@@ -59,11 +59,14 @@ cd frontend && npm install && cp .env.example .env && npm run dev   # http://loc
 ## Checks to run before reporting
 
 - Backend: `python -m compileall -q backend` and, once tests exist, `cd backend && pytest -q`.
-- Frontend: `cd frontend && npm run typecheck && npm run build`.
+- Frontend: `cd frontend && npm run build`.
 
 ## Rules that matter here
 
-- **Static export.** `frontend/next.config.ts` uses `output: 'export'`: no API routes, no server
+- **JavaScript, not TypeScript.** The frontend is plain JavaScript (`.js` / `.jsx`) with a
+  `jsconfig.json` for the `@/` alias. Do not add `.ts` / `.tsx` files or TypeScript packages.
+  Document data shapes with a short comment or JSDoc where it helps.
+- **Static export.** `frontend/next.config.mjs` uses `output: 'export'`: no API routes, no server
   actions, no middleware, and no dynamic route segments without `generateStaticParams`. Pass ids
   in query strings (`/pass?c=...`, `/events?id=...`) instead of `[param]` folders.
 - **One backend instance until task 03 lands.** Crowd counts live in process memory, so Cloud Run

@@ -51,7 +51,7 @@ an SOS button never pretends a message was sent.
 
 ```
 cd backend && pytest -q
-cd frontend && npm run typecheck && npm run build
+cd frontend && npm run build
 ```
 
 Then test offline behaviour manually in DevTools → Network → Offline and report the result.

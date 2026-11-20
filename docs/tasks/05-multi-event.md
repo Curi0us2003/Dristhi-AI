@@ -52,7 +52,7 @@ In: events, cameras, guards, wizard shell, lifecycle. Out: map drawing (06), pas
 
 ```
 cd backend && pytest -q
-cd frontend && npm run typecheck && npm run build
+cd frontend && npm run build
 ```
 
 ## HUMAN

@@ -50,7 +50,11 @@ import { assignStaffToGrievance, STAFF_KIND_LABEL, updateStaff, watchStaff } fro
  * @property {{ seconds: number, nanoseconds: number }} submittedAt
  * @property {'new' | 'resolved'} status
  * @property {string} [submittedBy]
- * @property {string} [email]          reporter's email, used for notifications
+ * @property {string} [attendeeId]     anonymous attendee id (new attendee app); notifications go here
+ * @property {string} [eventSlug]
+ * @property {'High' | 'Medium' | 'Low'} [urgency]
+ * @property {{ lat: number, lng: number, accuracy_m?: number }} [coords]
+ * @property {string} [email]          reporter's email on older reports, used for notifications
  * @property {string} [personName]
  * @property {string} [lastSeen]
  * @property {string} [photoDataUri]
@@ -61,6 +65,13 @@ import { assignStaffToGrievance, STAFF_KIND_LABEL, updateStaff, watchStaff } fro
  * @property {string} [assignedStaffKind]
  * @property {{ seconds: number } | null} [assignedAt]
  */
+
+/** Attendee reports are addressed by attendee id; older reports by email. */
+function notificationRecipient(g) {
+  if (g.attendeeId) return { attendeeId: g.attendeeId };
+  const email = g.email || g.submittedBy;
+  return email ? { userEmail: email } : null;
+}
 
 const grievanceIcons = {
   'Medical Attention': Stethoscope,
@@ -150,10 +161,10 @@ export default function GrievancesPage() {
   }, []);
 
   const notify = (grievance, message) => {
-    const userEmail = grievance.email || grievance.submittedBy;
-    if (!userEmail) return Promise.resolve();
+    const recipient = notificationRecipient(grievance);
+    if (!recipient) return Promise.resolve();
     return addDoc(collection(db, 'notifications'), {
-      userEmail,
+      ...recipient,
       message,
       createdAt: serverTimestamp(),
       read: false,
@@ -335,6 +346,19 @@ export default function GrievancesPage() {
                   </CardDescription>
                   <div className="flex flex-wrap gap-2 pt-1">
                     <SlaBadge grievance={grievance} now={now} />
+                    {grievance.urgency && (
+                      <StatusBadge
+                        tone={
+                          grievance.urgency === 'High'
+                            ? 'critical'
+                            : grievance.urgency === 'Medium'
+                              ? 'warning'
+                              : 'muted'
+                        }
+                      >
+                        {grievance.urgency} urgency
+                      </StatusBadge>
+                    )}
                     {grievance.assignedStaffName && (
                       <StatusBadge tone="predicted">
                         {grievance.assignedStaffName}

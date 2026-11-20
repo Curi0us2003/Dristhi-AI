@@ -28,7 +28,7 @@ by Windows Smart App Control on the dev machine; the schema is kept in `frontend
 | H4 | **Command:** live density per zone with status word, 15-minute prediction, guards present vs needed, suggested guard moves from quiet to busy zones, one-click Approve (moves the guards and logs a dispatch), "Arrived" for staff on the way | `/command` | `zones`, `staff`, `dispatches` + `/api/feeds`, `/api/predictions` |
 | H5 | **Reports queue:** send a staff member from the roster to a grievance (medical staff listed first for medical reports), timers for assign and resolve with Overdue labels, resolve (frees the staff member and notifies the reporter) | `/grievances` | `grievances` + `staff`, `dispatches` |
 
-Code (JavaScript; the rest of the frontend is TypeScript, `allowJs` lets them mix):
+Code (JavaScript, like the rest of the frontend):
 `frontend/src/lib/admin-data.js` (data, with JSDoc shapes), `src/lib/redistribution.js` (guard-move
 rules), `src/contexts/event-context.jsx` (selected event), `src/components/admin/`,
 `src/app/(app)/command|setup|grievances/page.jsx`.

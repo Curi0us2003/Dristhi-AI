@@ -7,3 +7,6 @@ deploy.sh
 deploy.ps1
 Dockerfile
 .dockerignore
+tests/
+out/
+.pytest_cache/

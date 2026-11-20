@@ -9,6 +9,13 @@ Read CLAUDE.md, docs/architecture.md and docs/tasks/07-passes-qr.md, then do tas
 Security matters here: list every check you implemented in your final report.
 ```
 
+**Builds on 07a.** Task 07a already has the `attendees` table and the anonymous `/join` flow.
+This task adds personal passes and phone verification and then turns off anonymous join for
+events that use passes. Make that a per-event setting, `events.join_mode` (`open` / `pass`).
+Screens: `docs/design/mockups/AttendeePass.dc.html`. The attendee types their full number
+(the pass shows only the last 4 digits), and the backend checks it matches before any SMS is
+sent, so the browser never receives the full number.
+
 ## Goal
 
 Each attendee gets a personal QR pass. A pass can be claimed once, by the person whose phone
@@ -33,9 +40,13 @@ number is on it, on one device. A forwarded QR fails at the SMS step.
      anything else → 409 "already claimed".
    - `POST /api/events/{id}/passes/{pass_id}/reset` (admin): clears the claim.
 2. Frontend:
-   - Page `/pass?c=…`: shows the check result, then Firebase phone sign-in
-     (`RecaptchaVerifier` + `signInWithPhoneNumber`) prefilled with the pass phone (attendee
-     confirms by typing the last digits, not the whole number), then calls claim.
+   - Page `/pass?c=…`:
+     1. Shows the check result.
+     2. The attendee types their full number. `POST /api/passes/verify-phone` `{code, phone}`
+        returns 204 on a match, otherwise 403. It is rate-limited and stops SMS being sent to
+        numbers that aren't on the pass.
+     3. Firebase phone sign-in (`RecaptchaVerifier` + `signInWithPhoneNumber`).
+     4. Calls claim.
    - `device_id`: a random UUID stored in `localStorage` on first visit.
    - Success → attendee app for that event. 409 → clear message and "ask staff to reset".
    - Setup wizard step 5: CSV upload with row errors, attendee table with claim status and
@@ -55,7 +66,7 @@ number is on it, on one device. A forwarded QR fails at the SMS step.
 
 ```
 cd backend && pytest -q
-cd frontend && npm run typecheck && npm run build
+cd frontend && npm run build
 ```
 
 ## HUMAN

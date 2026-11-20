@@ -61,14 +61,14 @@ Primary keys are UUIDs; timestamps are `timestamptz`.
 | --- | --- |
 | organizations | id, name |
 | admins | id, organization_id, firebase_uid, email, username, employee_id, role (`owner` / `operator`) |
-| events | id, organization_id, name, venue, city, starts_at, ends_at, status (`draft` / `live` / `ended`), alert_threshold_pct, warning_threshold_pct |
+| events | id, organization_id, slug (unique, used in the event QR link), name, venue, city, starts_at, ends_at, status (`draft` / `live` / `ended`), attendee_count, alert_threshold_pct, warning_threshold_pct |
 | zones | id, event_id, name, capacity, polygon (PostGIS `POLYGON`, SRID 4326) |
 | pois | id, event_id, zone_id?, kind (`washroom` / `first_aid` / `exit` / `water` / `lost_found` / `cloak_room` / `help_point` / `stage`), name, location (`POINT`, 4326) |
 | cameras | id, event_id, zone_id, name, source_url, max_capacity, location (`POINT`), status |
 | crowd_readings | id, camera_id, event_id, taken_at, count, density_pct, alert_level |
 | guards | id, event_id, zone_id?, name, phone, status (`active` / `standby` / `alert`) |
 | medical_staff, ambulances | id, event_id, name or number, zone_id?, status |
-| attendees | id, event_id, name, phone, email? |
+| attendees | id, event_id, number ("Attendee 12"), device_id, name?, phone?, email?, created_at |
 | passes | id, event_id, attendee_id, code_hash, expires_at, claimed_by_uid?, claimed_device_id?, claimed_at? |
 | grievances | id, event_id, attendee_id?, type (`medical` / `lost_found` / `missing_person` / `general`), details, urgency, location (`POINT`)?, zone_id?, photo_path?, status (`new` / `assigned` / `resolved`), action_taken |
 | notifications | id, event_id, attendee_id, message, created_at, read_at? |
@@ -91,6 +91,11 @@ Primary keys are UUIDs; timestamps are `timestamptz`.
 
 Role is resolved on every request: admin by `admins.firebase_uid`, attendee by `passes.claimed_by_uid`.
 
+**Demo phase (task 07a):** attendees do not sign in. One QR code per event opens
+`/join?e=<slug>`; the backend gives each phone the next number ("Attendee 12") and the app keeps
+it in `localStorage`. The join routes are the only unauthenticated routes besides
+`/api/health`. Task 07 replaces this with personal passes and phone verification.
+
 ## Environment variables (backend)
 
 | Name | Example | Notes |
@@ -103,8 +108,12 @@ Role is resolved on every request: admin by `admins.firebase_uid`, attendee by `
 | `GEMINI_MODEL` | current Gemini Flash model id | Pick the latest Flash model at implementation time |
 | `CORS_ORIGINS` | `https://app.example.com,http://localhost:9002` | Comma-separated |
 | `FEEDS_FILE` | backend/feeds.json | Only until cameras live in the database |
+| `PUBLIC_APP_URL` | `https://<project>.web.app` | Base of the event QR link `/join?e=<slug>` |
 
 ## Limits to design around
+
+- During the demo phase anyone with the event QR link can join as a new attendee. That is
+  accepted until task 07.
 
 - QR passes cannot be made fully share-proof: if the holder forwards both the QR and their SMS
   code, software cannot tell. A photo-ID check at the gate covers that.
