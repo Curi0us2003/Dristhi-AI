@@ -9,11 +9,12 @@ import { Video, Users, Maximize, RefreshCw, Dot, AlertTriangle, Wifi, WifiOff, F
 import { useEffect, useState, useRef, useCallback } from 'react';
 
 // Backend configuration
-import { BACKEND_URL, streamOrigin } from '@/lib/backend-url';
+import { BACKEND_URL } from '@/lib/backend-url';
 
 const BACKEND_BASE = BACKEND_URL;
 const FEED_IDS = ['feed_1', 'feed_2', 'feed_3', 'feed_4', 'feed_5', 'feed_6', 'feed_7', 'feed_8'];
 const DENSITY_REFRESH_MS = 2500;
+const LIVE_REFRESH_MS = 1000; // plain camera picture refresh
 
 // Enhanced Video Stream Component with Auto-Reconnection
 const RobustVideoStream = ({ feedId, feedData, onError, showDensity = false }) => {
@@ -32,21 +33,20 @@ const RobustVideoStream = ({ feedId, feedData, onError, showDensity = false }) =
   const reconnectDelay = 2000;
   const activityTimeout = 10000; // 10 seconds
 
-  // Generate unique stream URL to prevent caching
+  // Each camera is shown as a snapshot refreshed every second (or the analysed frame with the
+  // density overlay). Snapshots are short requests served from the backend's shared frame
+  // cache; long-lived MJPEG streams tied up Cloud Run's request slots and, with the frozen-
+  // stream watchdog below, kept reopening every 10 s until the backend jammed.
   const generateStreamUrl = useCallback(() => {
     const timestamp = Date.now();
-    // Heatmap mode shows the exact frame the AI analysed (refreshed below), so the
-    // overlay always lines up with the people in the picture. It also avoids holding
-    // 8 MJPEG connections open (browsers allow only 6 per host over HTTP/1.1).
-    return showDensity
-      ? `${BACKEND_URL}/api/video/snapshot/${feedId}?overlay=true&t=${timestamp}`
-      : `${streamOrigin(FEED_IDS.indexOf(feedId))}/api/video/stream/${feedId}?t=${timestamp}`;
+    return `${BACKEND_URL}/api/video/snapshot/${feedId}?overlay=${showDensity}&t=${timestamp}`;
   }, [feedId, showDensity]);
 
-  // In heatmap mode, poll for the latest analysed frame
   useEffect(() => {
-    if (!showDensity) return;
-    const timer = setInterval(() => setStreamUrl(generateStreamUrl()), DENSITY_REFRESH_MS);
+    const timer = setInterval(
+      () => setStreamUrl(generateStreamUrl()),
+      showDensity ? DENSITY_REFRESH_MS : LIVE_REFRESH_MS,
+    );
     return () => clearInterval(timer);
   }, [showDensity, generateStreamUrl]);
 

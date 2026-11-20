@@ -44,6 +44,9 @@ Write-Host "Building with Cloud Build (a few minutes)..."
 gcloud builds submit --tag $Image .
 if ($LASTEXITCODE -ne 0) { exit 1 }
 
+# INFERENCE_THREADS=1 keeps one of the 2 vCPUs free for API requests and video previews (the
+# crowd model otherwise fills both and requests time out with 429); DENSITY_MAX_SIDE=768 makes
+# each count about 2x faster (README: ~10.8% vs 7.9% error on street scenes).
 Write-Host "Deploying to Cloud Run..."
 # One instance only (crowd counts live in memory); --timeout 3600 keeps camera streams open.
 # ^@^ makes "@" the list separator, because CorsOrigins itself contains commas.
@@ -57,11 +60,12 @@ gcloud run deploy $ServiceName `
     --max-instances 1 `
     --no-cpu-throttling `
     --timeout 3600 `
+    --concurrency 1000 `
     --port 8080 `
     --allow-unauthenticated `
     --add-cloudsql-instances $SqlInstance `
     --set-secrets "DATABASE_URL=${DbSecret}:latest" `
-    --set-env-vars "^@^ENV=production@FIREBASE_PROJECT_ID=$ProjectId@PUBLIC_APP_URL=$PublicAppUrl@CORS_ORIGINS=$CorsOrigins"
+    --set-env-vars "^@^ENV=production@FIREBASE_PROJECT_ID=$ProjectId@PUBLIC_APP_URL=$PublicAppUrl@CORS_ORIGINS=$CorsOrigins@INFERENCE_THREADS=1@DENSITY_MAX_SIDE=768"
 if ($LASTEXITCODE -ne 0) { exit 1 }
 
 $Url = gcloud run services describe $ServiceName --region $Region --format="value(status.url)"

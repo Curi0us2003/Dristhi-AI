@@ -1,10 +1,11 @@
-from fastapi import FastAPI, Body
+from fastapi import FastAPI, Body, Request
 from fastapi.responses import JSONResponse, StreamingResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import cv2
 import pandas as pd
 from datetime import datetime, timedelta, timezone
+import asyncio
 import threading
 import time
 import numpy as np
@@ -355,6 +356,87 @@ feed_processors = {}
 for feed_id, config in CCTV_FEEDS.items():
     feed_processors[feed_id] = FeedProcessor(feed_id, config)
 
+# ─────────────────────────────────────────────────────────────
+# Shared preview frames (one reader per camera, shared by every viewer)
+# ─────────────────────────────────────────────────────────────
+PREVIEW_FPS = float(os.environ.get("PREVIEW_FPS", "4"))   # JPEGs per second per camera
+PREVIEW_WIDTH = 640
+# An MJPEG stream ends itself after this long; the browser reopens it if still watching.
+# Behind Cloud Run a viewer leaving is not always seen, and an open stream holds a request slot.
+STREAM_MAX_SECONDS = float(os.environ.get("STREAM_MAX_SECONDS", "120"))
+
+
+class PreviewReader:
+    """Decodes one camera in a background thread and keeps its latest frame as JPEG.
+
+    Snapshots and MJPEG streams read these bytes, so video work stays at one reader per
+    camera however many browsers watch, and no request ever opens the video itself (that
+    used to block the server once per viewer, which jammed Cloud Run).
+    """
+
+    def __init__(self, feed_id, config):
+        self.feed_id, self.url = feed_id, config["url"]
+        self.jpeg = None          # latest frame, plain
+        self.overlay_jpeg = None  # latest frame with the density heatmap and count
+        self.updated = 0.0
+        self.running = False
+
+    def start(self):
+        self.running = True
+        threading.Thread(target=self._run, name=f"preview-{self.feed_id}", daemon=True).start()
+
+    def stop(self):
+        self.running = False
+
+    def _run(self):
+        proc = feed_processors[self.feed_id]
+        while self.running:
+            cap = cv2.VideoCapture(self.url)
+            if not cap.isOpened():
+                cap.release()
+                time.sleep(5)
+                continue
+            src_fps = cap.get(cv2.CAP_PROP_FPS) or 15
+            step = max(1, round(src_fps / PREVIEW_FPS))  # decode every frame, encode every `step`-th
+            n = 0
+            started = time.time()
+            while self.running:
+                if not cap.grab():
+                    break  # end of a video file (or a dropped stream): reopen and loop
+                n += 1
+                if n % step == 0:
+                    ok, frame = cap.retrieve()
+                    if ok:
+                        self._publish(frame, proc)
+                # Play files in real time instead of as fast as they decode.
+                wait = started + n / src_fps - time.time()
+                if wait > 0:
+                    time.sleep(wait)
+            cap.release()
+
+    def _publish(self, frame, proc):
+        h, w = frame.shape[:2]
+        frame = cv2.resize(frame, (PREVIEW_WIDTH, round(PREVIEW_WIDTH * h / w)))
+        ok, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
+        if ok:
+            self.jpeg = buf.tobytes()
+        if proc.latest_density is not None:
+            try:
+                over = render_density_overlay(frame.copy(), proc.latest_density, proc.current_count)
+                ok, buf = cv2.imencode(".jpg", over, [cv2.IMWRITE_JPEG_QUALITY, 75])
+                if ok:
+                    self.overlay_jpeg = buf.tobytes()
+            except Exception:
+                pass
+        self.updated = time.time()
+
+    def frame(self, overlay=False):
+        return (self.overlay_jpeg or self.jpeg) if overlay else self.jpeg
+
+
+preview_readers = {fid: PreviewReader(fid, cfg) for fid, cfg in CCTV_FEEDS.items()}
+
+
 
 # ─────────────────────────────────────────────────────────────
 # Lifespan (replaces deprecated @app.on_event)
@@ -368,6 +450,8 @@ async def lifespan(app: FastAPI):
     print("🔄 Starting feed processors...")
     for processor in feed_processors.values():
         processor.start_processing()
+    for reader in preview_readers.values():
+        reader.start()
     print("✅ API startup completed!")
     print("📊 Available endpoints:")
     print("   - Health Check:  GET /api/health")
@@ -384,6 +468,8 @@ async def lifespan(app: FastAPI):
     print("🛑 Shutting down feed processors...")
     for processor in feed_processors.values():
         processor.stop_processing()
+    for reader in preview_readers.values():
+        reader.stop()
     print("✅ Shutdown complete.")
 
 
@@ -501,154 +587,40 @@ async def check_feed_health(feed_id: str):
 
 
 @app.get("/api/video/stream/{feed_id}")
-async def get_video_stream(feed_id: str, overlay: bool = False):
-    """MJPEG stream. `?overlay=true` blends the latest crowd-density heatmap and count."""
+async def get_video_stream(feed_id: str, request: Request, overlay: bool = False):
+    """MJPEG stream from the camera's shared preview frames (`?overlay=true` adds the density
+    heatmap and count). Async and thread-free: an open stream costs almost nothing."""
     if feed_id not in CCTV_FEEDS:
         return JSONResponse(status_code=404, content={"error": "Feed not found"})
+    reader = preview_readers[feed_id]
 
-    def generate_video_stream():
-        cap = None
-        reconnect_attempts = 0
-        max_reconnect_attempts = 5
-
-        try:
-            while reconnect_attempts < max_reconnect_attempts:
-                try:
-                    cap = cv2.VideoCapture(CCTV_FEEDS[feed_id]['url'])
-                    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-                    src_fps = cap.get(cv2.CAP_PROP_FPS) or 15
-                    frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
-                    duration_ms = frames / src_fps * 1000 if frames > 0 else 0
-                    proc = feed_processors[feed_id]
-                    if duration_ms:  # video file: show what the analyser is looking at
-                        cap.set(cv2.CAP_PROP_POS_MSEC, proc.playback_ms(duration_ms))
-                    frame_period = 1.0 / min(src_fps, 15)
-
-                    if not cap.isOpened():
-                        reconnect_attempts += 1
-                        time.sleep(2)
-                        continue
-
-                    reconnect_attempts = 0
-                    consecutive_failures = 0
-                    max_consecutive_failures = 10
-
-                    while consecutive_failures < max_consecutive_failures:
-                        ret, frame = cap.read()
-
-                        if not ret:
-                            consecutive_failures += 1
-                            if consecutive_failures >= max_consecutive_failures:
-                                break
-                            cap.set(cv2.CAP_PROP_POS_MSEC, proc.playback_ms(duration_ms))
-                            time.sleep(0.1)
-                            continue
-
-                        consecutive_failures = 0
-
-                        try:
-                            frame = cv2.resize(frame, (640, 480))
-                            if overlay:
-                                age = time.time() - proc.analysed_at if proc.analysed_at else None
-                                frame = render_density_overlay(frame, proc.latest_density, proc.current_count, age)
-                            encode_param = [
-                                int(cv2.IMWRITE_JPEG_QUALITY), 75,
-                                int(cv2.IMWRITE_JPEG_OPTIMIZE), 1
-                            ]
-                            ret_encode, buffer = cv2.imencode('.jpg', frame, encode_param)
-
-                            if not ret_encode:
-                                continue
-
-                            frame_bytes = buffer.tobytes()
-                            yield (b'--frame\r\n'
-                                   b'Content-Type: image/jpeg\r\n'
-                                   b'Content-Length: ' + str(len(frame_bytes)).encode() + b'\r\n\r\n'
-                                   + frame_bytes + b'\r\n')
-
-                            # Keep real-time pace (skip frames if a high-fps source runs faster than 15 fps)
-                            for _ in range(max(0, round(src_fps * frame_period) - 1)):
-                                cap.grab()
-                            time.sleep(frame_period)
-
-                        except Exception as frame_error:
-                            consecutive_failures += 1
-                            continue
-
-                    if cap:
-                        cap.release()
-                        cap = None
-
-                    reconnect_attempts += 1
-                    time.sleep(3)
-
-                except Exception as e:
-                    if cap:
-                        cap.release()
-                        cap = None
-                    reconnect_attempts += 1
-                    time.sleep(2)
-
-            error_frame = create_error_frame(f"Feed {feed_id} Unavailable")
-            ret_encode, buffer = cv2.imencode('.jpg', error_frame)
-            if ret_encode:
-                frame_bytes = buffer.tobytes()
-                yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-
-        except Exception as e:
-            print(f"Critical error in video stream for {feed_id}: {e}")
-        finally:
-            if cap is not None:
-                cap.release()
+    async def frames():
+        last = None
+        ends = time.time() + STREAM_MAX_SECONDS
+        while time.time() < ends and not await request.is_disconnected():
+            jpeg = reader.frame(overlay)
+            if jpeg is not None and jpeg is not last:
+                last = jpeg
+                yield b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + jpeg + b"\r\n"
+            await asyncio.sleep(1 / PREVIEW_FPS)
 
     return StreamingResponse(
-        generate_video_stream(),
+        frames(),
         media_type="multipart/x-mixed-replace; boundary=frame",
-        headers={
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Pragma": "no-cache",
-            "Expires": "0",
-            "Connection": "keep-alive",
-        }
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache", "Expires": "0"},
     )
 
 
 @app.get("/api/video/snapshot/{feed_id}")
 async def get_video_snapshot(feed_id: str, overlay: bool = False):
-    """JPEG frame. `?overlay=true` returns the last analysed frame with its density heatmap."""
+    """Latest JPEG of the camera from its shared preview reader (`?overlay=true`: with the
+    density heatmap and count). Returns at once; never opens the video."""
     if feed_id not in CCTV_FEEDS:
         return JSONResponse(status_code=404, content={"error": "Feed not found"})
-    proc = feed_processors[feed_id]
-    if overlay and proc.latest_frame is not None:
-        h, w = proc.latest_frame.shape[:2]
-        frame = cv2.resize(proc.latest_frame, (640, round(640 * h / w)))
-        frame = render_density_overlay(frame, proc.latest_density, proc.current_count)
-        ok, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
-        return Response(content=buffer.tobytes(), media_type="image/jpeg",
-                        headers={"Cache-Control": "no-store"})
-    try:
-        cap = cv2.VideoCapture(CCTV_FEEDS[feed_id]['url'])
-        fps = cap.get(cv2.CAP_PROP_FPS) or 25
-        frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
-        if frames > 0:  # video file: show the moment the analyser is at
-            cap.set(cv2.CAP_PROP_POS_MSEC, proc.playback_ms(frames / fps * 1000))
-        ret, frame = cap.read()
-        cap.release()
-
-        if not ret:
-            return JSONResponse(status_code=500, content={"error": "Could not capture frame"})
-
-        frame = cv2.resize(frame, (320, 240))
-        ret, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
-
-        if not ret:
-            return JSONResponse(status_code=500, content={"error": "Could not encode frame"})
-
-        return Response(content=buffer.tobytes(), media_type="image/jpeg")
-
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"error": f"Snapshot error: {str(e)}"})
+    jpeg = preview_readers[feed_id].frame(overlay)
+    if jpeg is None:
+        return JSONResponse(status_code=503, content={"error": "Camera starting, try again shortly"})
+    return Response(content=jpeg, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/video/info")

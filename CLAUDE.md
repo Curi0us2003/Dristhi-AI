@@ -47,14 +47,13 @@ docs/reference/        exported plan (PDF), architecture deck (PPTX), redesign c
 
 ## Run locally
 
-```bash
-# backend (Python 3.10+)
-cd backend && python -m venv .venv && . .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt && python app.py              # http://localhost:5000/docs
-
-# frontend (Node 20+)
-cd frontend && npm install && cp .env.example .env && npm run dev   # http://localhost:9002
-```
+Full setup and start commands: `docs/run-locally.md`. In short, five processes: Cloud SQL proxy
+(`cloud-sql-proxy dhristi-ai-buildathon:asia-south1:dristhi-fdc --port 5433`), backend
+(`cd backend && ENV=production DB_POOL_SIZE=2 DB_MAX_OVERFLOW=2 .venv/bin/python app.py`, port
+5000), Auth emulator (`cd frontend && npm run emulators`), demo login (`npm run seed:emulator`),
+frontend (`npm run dev`, port 9002). The database is shared with the live site and allows ~14
+connections in total: keep the small pool, and never deploy from a `frontend/.env` set up for local
+use.
 
 ## Checks to run before reporting
 
