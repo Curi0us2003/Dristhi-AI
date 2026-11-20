@@ -68,6 +68,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { summarizeDashboard } from '@/ai/flows/summarize-dashboard.client';
 import { BACKEND_URL } from '@/lib/backend-url';
+import { ATTENDEE_URL } from '@/lib/app-urls';
 import Link from 'next/link';
 import AutonomousAgent from '@/components/autonomous-agent';
 
@@ -524,7 +525,7 @@ export default function DashboardPage() {
           {process.env.NEXT_PUBLIC_EVENT_SLUG && (
             <Button variant="outline" size="sm" asChild>
               <Link
-                href={`/join?e=${encodeURIComponent(process.env.NEXT_PUBLIC_EVENT_SLUG)}`}
+                href={`${ATTENDEE_URL}/join?e=${encodeURIComponent(process.env.NEXT_PUBLIC_EVENT_SLUG)}`}
                 target="_blank"
                 rel="noopener"
               >

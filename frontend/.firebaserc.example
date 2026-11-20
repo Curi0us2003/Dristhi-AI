@@ -1,0 +1,17 @@
+{
+  "projects": {
+    "default": "dhristi-ai-buildathon"
+  },
+  "targets": {
+    "dhristi-ai-buildathon": {
+      "hosting": {
+        "admin": [
+          "dhristi-ai-buildathon"
+        ],
+        "attendee": [
+          "dhristi-ai-attendee"
+        ]
+      }
+    }
+  }
+}
