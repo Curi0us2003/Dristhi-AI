@@ -1,0 +1,511 @@
+{
+ "type": "FeatureCollection",
+ "_comment": "Demo venue for the 'demo' event: one zone per camera in feeds.json, loaded by scripts/seed_demo.py. Coordinates are [lng, lat] (WGS 84).",
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       77.71905,
+       12.97935
+      ],
+      [
+       77.71918,
+       12.97935
+      ],
+      [
+       77.71918,
+       12.9796
+      ],
+      [
+       77.71905,
+       12.9796
+      ],
+      [
+       77.71905,
+       12.97935
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "type": "zone",
+    "name": "Market",
+    "capacity": 500
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       77.71918,
+       12.97935
+      ],
+      [
+       77.71935,
+       12.97935
+      ],
+      [
+       77.71935,
+       12.9796
+      ],
+      [
+       77.71918,
+       12.9796
+      ],
+      [
+       77.71918,
+       12.97935
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "type": "zone",
+    "name": "Subway",
+    "capacity": 150
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       77.71935,
+       12.97935
+      ],
+      [
+       77.71982,
+       12.97935
+      ],
+      [
+       77.71982,
+       12.9796
+      ],
+      [
+       77.71935,
+       12.9796
+      ],
+      [
+       77.71935,
+       12.97935
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "type": "zone",
+    "name": "Mall Stage",
+    "capacity": 600
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       77.71982,
+       12.97935
+      ],
+      [
+       77.72005,
+       12.97935
+      ],
+      [
+       77.72005,
+       12.9796
+      ],
+      [
+       77.71982,
+       12.9796
+      ],
+      [
+       77.71982,
+       12.97935
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "type": "zone",
+    "name": "Main Entrance",
+    "capacity": 150
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       77.7189,
+       12.9796
+      ],
+      [
+       77.71905,
+       12.9796
+      ],
+      [
+       77.71905,
+       12.9798
+      ],
+      [
+       77.7189,
+       12.9798
+      ],
+      [
+       77.7189,
+       12.9796
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "type": "zone",
+    "name": "Lobby",
+    "capacity": 150
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       77.7189,
+       12.9798
+      ],
+      [
+       77.71935,
+       12.9798
+      ],
+      [
+       77.71935,
+       12.97998
+      ],
+      [
+       77.7189,
+       12.97998
+      ],
+      [
+       77.7189,
+       12.9798
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "type": "zone",
+    "name": "Red Street Road",
+    "capacity": 150
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       77.71935,
+       12.9798
+      ],
+      [
+       77.71965,
+       12.9798
+      ],
+      [
+       77.71965,
+       12.97998
+      ],
+      [
+       77.71935,
+       12.97998
+      ],
+      [
+       77.71935,
+       12.9798
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "type": "zone",
+    "name": "Exit Gate",
+    "capacity": 120
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       77.71885,
+       12.97998
+      ],
+      [
+       77.7191,
+       12.97998
+      ],
+      [
+       77.7191,
+       12.98025
+      ],
+      [
+       77.71885,
+       12.98025
+      ],
+      [
+       77.71885,
+       12.97998
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "type": "zone",
+    "name": "Cross Road",
+    "capacity": 200
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     77.7196,
+     12.97938
+    ]
+   },
+   "properties": {
+    "type": "poi",
+    "kind": "washroom",
+    "name": "Washroom · Stage south"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     77.71995,
+     12.97955
+    ]
+   },
+   "properties": {
+    "type": "poi",
+    "kind": "washroom",
+    "name": "Washroom · Main Entrance"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     77.71895,
+     12.9797
+    ]
+   },
+   "properties": {
+    "type": "poi",
+    "kind": "washroom",
+    "name": "Washroom · Lobby"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     77.71988,
+     12.97945
+    ]
+   },
+   "properties": {
+    "type": "poi",
+    "kind": "first_aid",
+    "name": "First aid · Main Entrance"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     77.7192,
+     12.9799
+    ]
+   },
+   "properties": {
+    "type": "poi",
+    "kind": "first_aid",
+    "name": "First aid · Red Street"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     77.7195,
+     12.97995
+    ]
+   },
+   "properties": {
+    "type": "poi",
+    "kind": "exit",
+    "name": "Exit · Exit Gate"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     77.72002,
+     12.97938
+    ]
+   },
+   "properties": {
+    "type": "poi",
+    "kind": "exit",
+    "name": "Exit · Main gate"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     77.71925,
+     12.9794
+    ]
+   },
+   "properties": {
+    "type": "poi",
+    "kind": "exit",
+    "name": "Exit · Subway stairs"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     77.71945,
+     12.97955
+    ]
+   },
+   "properties": {
+    "type": "poi",
+    "kind": "water",
+    "name": "Water · Stage"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     77.7191,
+     12.9795
+    ]
+   },
+   "properties": {
+    "type": "poi",
+    "kind": "water",
+    "name": "Water · Market"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     77.719,
+     12.97975
+    ]
+   },
+   "properties": {
+    "type": "poi",
+    "kind": "lost_found",
+    "name": "Lost and found · Lobby"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     77.71985,
+     12.97957
+    ]
+   },
+   "properties": {
+    "type": "poi",
+    "kind": "cloak_room",
+    "name": "Cloak room · Main Entrance"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     77.7196,
+     12.97985
+    ]
+   },
+   "properties": {
+    "type": "poi",
+    "kind": "help_point",
+    "name": "Help point · Exit Gate"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     77.71912,
+     12.9794
+    ]
+   },
+   "properties": {
+    "type": "poi",
+    "kind": "help_point",
+    "name": "Help point · Market"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     77.71965,
+     12.9795
+    ]
+   },
+   "properties": {
+    "type": "poi",
+    "kind": "stage",
+    "name": "Main stage"
+   }
+  }
+ ]
+}

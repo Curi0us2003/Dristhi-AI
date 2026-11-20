@@ -80,15 +80,15 @@ function HelpCard() {
 }
 
 const NEAREST = [
-  { label: 'Washroom', poi: 'Washroom', icon: Toilet, tint: 'bg-ds-predicted-tint text-ds-predicted' },
+  { label: 'Washroom', kind: 'washroom', icon: Toilet, tint: 'bg-ds-predicted-tint text-ds-predicted' },
   {
     label: 'Water',
-    poi: 'Hydration Area',
+    kind: 'water',
     icon: Droplet,
     tint: 'bg-ds-predicted-tint text-[#2B6CB0] dark:text-ds-predicted',
   },
-  { label: 'First aid', poi: null, icon: BriefcaseMedical, tint: 'bg-ds-critical-tint text-ds-critical-bar' },
-  { label: 'Exit', poi: null, icon: DoorOpen, tint: 'bg-ds-accent-tint text-ds-accent' },
+  { label: 'First aid', kind: 'first_aid', icon: BriefcaseMedical, tint: 'bg-ds-critical-tint text-ds-critical-bar' },
+  { label: 'Exit', kind: 'exit', icon: DoorOpen, tint: 'bg-ds-accent-tint text-ds-accent' },
 ];
 
 function FindNearest() {
@@ -101,13 +101,13 @@ function FindNearest() {
         Find nearest
       </h2>
       <div className="grid grid-cols-4 gap-2 sm:gap-3 lg:grid-cols-2">
-        {NEAREST.map(({ label, poi, icon: Icon, tint }) => (
+        {NEAREST.map(({ label, kind, icon: Icon, tint }) => (
           <button
             key={label}
             type="button"
             onClick={() => {
               void ensureLocation('nearest');
-              router.push(poi ? `/user/map?poi=${encodeURIComponent(poi)}` : '/user/map');
+              router.push(`/user/map?kind=${kind}`);
             }}
             className="flex min-h-11 flex-col items-center gap-2 rounded-xl border border-ds-border bg-ds-surface px-1 py-3 text-xs font-medium hover:border-ds-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ds-accent sm:flex-row sm:gap-3 sm:p-3.5 sm:text-left sm:text-sm"
           >

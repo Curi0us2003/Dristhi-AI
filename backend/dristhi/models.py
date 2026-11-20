@@ -3,12 +3,14 @@ docs/architecture.md; later tasks add the rest in new Alembic migrations."""
 import uuid
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from geoalchemy2 import Geometry
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from dristhi.db import Base
 
 EVENT_STATUSES = ("draft", "live", "ended")
+POI_KINDS = ("washroom", "first_aid", "exit", "water", "lost_found", "cloak_room", "help_point", "stage")
 
 
 class Organization(Base):
@@ -62,3 +64,38 @@ class Attendee(Base):
     @property
     def display_name(self) -> str:
         return f"Attendee {self.number}"
+
+
+class Zone(Base):
+    """An area of the venue with its own capacity (task 06a). Polygon in WGS 84 (SRID 4326)."""
+
+    __tablename__ = "zones"
+    __table_args__ = (Index("ix_zones_polygon", "polygon", postgresql_using="gist"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    event_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    capacity: Mapped[int] = mapped_column(Integer)
+    polygon = mapped_column(Geometry("POLYGON", srid=4326, spatial_index=False), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Poi(Base):
+    """A facility on the venue map: washroom, first aid, exit, ... (task 06a)."""
+
+    __tablename__ = "pois"
+    __table_args__ = (
+        CheckConstraint(
+            "kind IN ('washroom', 'first_aid', 'exit', 'water', 'lost_found', 'cloak_room', 'help_point', 'stage')",
+            name="ck_pois_kind",
+        ),
+        Index("ix_pois_location", "location", postgresql_using="gist"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    event_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), index=True)
+    zone_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("zones.id", ondelete="SET NULL"))
+    kind: Mapped[str] = mapped_column(String(32))
+    name: Mapped[str] = mapped_column(String(200))
+    location = mapped_column(Geometry("POINT", srid=4326, spatial_index=False), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
