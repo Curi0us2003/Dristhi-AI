@@ -1,0 +1,51 @@
+name,phone,role,zone
+Ravi Kumar,+91 90000 00001,guard,Main Entrance
+Suresh Gowda,+91 90000 00002,guard,Mall Stage
+Manjunath B,+91 90000 00003,guard,Lobby
+Prakash Naik,+91 90000 00004,guard,Market
+Imran Pasha,+91 90000 00005,guard,Cross Road
+Harish Shetty,+91 90000 00006,guard,Exit Gate
+Venkatesh R,+91 90000 00007,guard,Red Street Road
+Mohan Das,+91 90000 00008,guard,Subway
+Kiran Patil,+91 90000 00009,guard,Main Entrance
+Abdul Rahman,+91 90000 00010,guard,Mall Stage
+Santosh Hegde,+91 90000 00011,guard,Lobby
+Naveen Kumar,+91 90000 00012,guard,Market
+Ramesh Yadav,+91 90000 00013,guard,Cross Road
+Ganesh Murthy,+91 90000 00014,guard,Exit Gate
+Vinod Singh,+91 90000 00015,guard,Red Street Road
+Ajay Thomas,+91 90000 00016,guard,Subway
+Deepak Rao,+91 90000 00017,guard,Main Entrance
+Sunil Babu,+91 90000 00018,guard,Mall Stage
+Lokesh M,+91 90000 00019,guard,Lobby
+Raghu Prasad,+91 90000 00020,guard,Market
+Mahesh Gowda,+91 90000 00021,supervisor,Main Entrance
+Farida Begum,+91 90000 00022,supervisor,Market
+Rajesh Menon,+91 90000 00023,supervisor,Red Street Road
+Dr. Anita Rao,+91 90000 00024,doctor,Main Entrance
+Dr. Vikram Shetty,+91 90000 00025,doctor,Mall Stage
+Dr. Meera Iyer,+91 90000 00026,doctor,Lobby
+Dr. Arjun Nair,+91 90000 00027,doctor,Market
+Dr. Kavya Reddy,+91 90000 00028,doctor,Cross Road
+Dr. Rohan Kulkarni,+91 90000 00029,doctor,Exit Gate
+Dr. Sneha Pillai,+91 90000 00030,doctor,Red Street Road
+Dr. Farhan Khan,+91 90000 00031,doctor,Subway
+Dr. Lakshmi Menon,+91 90000 00032,doctor,
+Dr. Siddharth Joshi,+91 90000 00033,doctor,
+Priya Sharma,+91 90000 00034,medic,Main Entrance
+Divya Hegde,+91 90000 00035,medic,Mall Stage
+Asha Bhat,+91 90000 00036,medic,Lobby
+Nikhil Verma,+91 90000 00037,medic,Market
+Pooja Nair,+91 90000 00038,medic,Cross Road
+Rahul Das,+91 90000 00039,medic,Exit Gate
+Shreya Kamath,+91 90000 00040,medic,Red Street Road
+Anil Jacob,+91 90000 00041,medic,Subway
+KA-01-AB-1234,+91 90000 00042,ambulance,Main Entrance
+KA-03-CD-5678,+91 90000 00043,ambulance,Exit Gate
+KA-05-EF-9012,+91 90000 00044,ambulance,Subway
+KA-51-GH-3456,+91 90000 00045,ambulance,Cross Road
+KA-53-JK-7890,+91 90000 00046,ambulance,Red Street Road
+Tanvi Rao,+91 90000 00047,volunteer,Main Entrance
+Aditya Shenoy,+91 90000 00048,volunteer,Lobby
+Neha Kulkarni,+91 90000 00049,volunteer,Cross Road
+Varun Pai,+91 90000 00050,volunteer,Red Street Road

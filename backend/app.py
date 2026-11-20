@@ -670,6 +670,7 @@ async def get_current_alerts():
 async def get_heatmap_data():
     heatmap_data = [
         {
+            "feed_id": feed_id,
             "location": data["location"],
             "intensity": data.get("density_percentage", 0),
             "count": data.get("current_count", 0),
@@ -677,7 +678,7 @@ async def get_heatmap_data():
             "name": data["name"],
             "alert_level": data.get("alert_level", "normal")
         }
-        for data in feeds_data.values()
+        for feed_id, data in feeds_data.items()
     ]
     return {"heatmap": heatmap_data, "timestamp": datetime.now().isoformat()}
 

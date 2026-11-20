@@ -15,20 +15,17 @@ from dristhi.models import Event, Poi, Zone
 router = APIRouter(prefix="/api", tags=["venue"])
 
 
-@router.get("/events/{slug}/map")
-def event_map(slug: str, db: Session = Depends(get_db)) -> dict:
-    """Zones: Polygon with {type: "zone", id, name, capacity, center: [lng, lat]}.
-    Facilities: Point with {type: "poi", id, kind, name, zone_id}. Coordinates are [lng, lat]."""
-    event = db.scalar(select(Event).where(Event.slug == slug))
-    if event is None or event.status != "live":
-        raise ApiError(404, "event_not_found", "This event is not open for joining.")
-
+def venue_feature_collection(db: Session, event: Event) -> dict:
+    """Zones: Polygon with {type: "zone", id, name, capacity, feed_id, center: [lng, lat]}.
+    Facilities: Point with {type: "poi", id, kind, name, zone_id}. Coordinates are [lng, lat].
+    Zones without an outline yet are left out. Shared by the attendee and admin maps."""
     features = []
     zones = db.execute(
         select(
             Zone.id,
             Zone.name,
             Zone.capacity,
+            Zone.feed_id,
             func.ST_AsGeoJSON(Zone.polygon, 7),
             func.ST_X(func.ST_PointOnSurface(Zone.polygon)),
             func.ST_Y(func.ST_PointOnSurface(Zone.polygon)),
@@ -36,12 +33,12 @@ def event_map(slug: str, db: Session = Depends(get_db)) -> dict:
         .where(Zone.event_id == event.id, Zone.polygon.is_not(None))
         .order_by(Zone.name)
     )
-    for zid, name, capacity, geojson, cx, cy in zones:
+    for zid, name, capacity, feed_id, geojson, cx, cy in zones:
         features.append({
             "type": "Feature",
             "geometry": json.loads(geojson),
             "properties": {
-                "type": "zone", "id": str(zid), "name": name, "capacity": capacity,
+                "type": "zone", "id": str(zid), "name": name, "capacity": capacity, "feed_id": feed_id,
                 "center": [round(cx, 7), round(cy, 7)],
             },
         })
@@ -62,3 +59,12 @@ def event_map(slug: str, db: Session = Depends(get_db)) -> dict:
         })
 
     return {"type": "FeatureCollection", "event": {"slug": event.slug, "name": event.name}, "features": features}
+
+
+@router.get("/events/{slug}/map")
+def event_map(slug: str, db: Session = Depends(get_db)) -> dict:
+    """Venue map of a live event for attendees (see venue_feature_collection)."""
+    event = db.scalar(select(Event).where(Event.slug == slug))
+    if event is None or event.status != "live":
+        raise ApiError(404, "event_not_found", "This event is not open for joining.")
+    return venue_feature_collection(db, event)

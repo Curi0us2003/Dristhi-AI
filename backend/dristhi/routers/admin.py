@@ -2,20 +2,26 @@
 and notifications. Every route needs a Firebase ID token of an admin (dristhi/auth.py) and only
 sees events of that admin's organization.
 """
+import io
 import re
 import secrets
 import uuid
 from datetime import datetime
 from typing import Literal
+from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, Response
+import qrcode
+
+from fastapi import APIRouter, Depends, Query, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from dristhi import config
 from dristhi.auth import admin_event, current_admin
 from dristhi.db import get_db
 from dristhi.errors import ApiError
+from dristhi.routers.venue import venue_feature_collection
 from dristhi.models import (
     EVENT_STATUSES,
     STAFF_KINDS,
@@ -129,6 +135,12 @@ class EventOut(BaseModel):
     attendee_count: int
     lat: float | None
     lng: float | None
+    join_url: str  # what the attendee QR code opens
+
+
+def join_url(slug: str) -> str:
+    """Attendee link for the event QR code; base is PUBLIC_APP_URL (the attendee site)."""
+    return f"{config.public_app_url()}/join?e={quote(slug)}"
 
 
 def _event_out(db: Session, event: Event) -> EventOut:
@@ -138,6 +150,7 @@ def _event_out(db: Session, event: Event) -> EventOut:
         starts_at=event.starts_at, ends_at=event.ends_at, status=event.status,
         warning_pct=event.warning_pct, critical_pct=event.critical_pct,
         people_per_guard=event.people_per_guard, attendee_count=event.attendee_count, lat=lat, lng=lng,
+        join_url=join_url(event.slug),
     )
 
 
@@ -187,6 +200,12 @@ def update_event(body: EventPatch, event: Event = Depends(admin_event), db: Sess
     return _event_out(db, event)
 
 
+@router.get("/events/{event_id}/venue-map")
+def admin_venue_map(event: Event = Depends(admin_event), db: Session = Depends(get_db)) -> dict:
+    """Same zones and facilities as the attendee map, for any status (draft events too)."""
+    return venue_feature_collection(db, event)
+
+
 # ── Zones ────────────────────────────────────────────────────────────────────────────────
 
 
@@ -226,6 +245,29 @@ def _zone(db: Session, event: Event, zone_id: uuid.UUID) -> Zone:
     if zone is None or zone.event_id != event.id:
         raise ApiError(404, "zone_not_found", "No such zone in this event.")
     return zone
+
+
+@router.get(
+    "/events/{event_id}/qr.png",
+    response_class=Response,
+    responses={200: {"content": {"image/png": {}}, "description": "The attendee QR code"}},
+)
+def event_qr(
+    size: int = Query(10, ge=2, le=40, description="pixels per QR module"),
+    event: Event = Depends(admin_event),
+) -> Response:
+    """The one QR code attendees scan at the venue: opens /join?e=<slug> on the attendee site."""
+    image = qrcode.make(join_url(event.slug), box_size=size, border=2)
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return Response(
+        content=buffer.getvalue(),
+        media_type="image/png",
+        headers={
+            "Cache-Control": "no-store",
+            "Content-Disposition": f'inline; filename="event-{event.slug}-qr.png"',
+        },
+    )
 
 
 @router.get("/events/{event_id}/zones", response_model=list[ZoneOut])
