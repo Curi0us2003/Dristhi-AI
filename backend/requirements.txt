@@ -16,3 +16,5 @@ alembic>=1.13,<2
 geoalchemy2>=0.15,<1
 qrcode[pil]>=7.4,<9
 python-dotenv>=1,<2
+# Verifies Firebase ID tokens; admins and their roles live in Cloud SQL
+firebase-admin>=6.5,<7

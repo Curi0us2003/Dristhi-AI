@@ -34,7 +34,7 @@ export default function MyReportsPage() {
               <button
                 type="button"
                 aria-label="Mark as read"
-                onClick={() => void markNotificationRead(n.id)}
+                onClick={() => void markNotificationRead(attendee.attendee_id, n.id)}
                 className="-m-2 flex h-11 w-11 flex-none items-center justify-center rounded-xl hover:bg-ds-surface/60"
               >
                 <X className="h-4 w-4" aria-hidden />

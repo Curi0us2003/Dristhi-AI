@@ -3,14 +3,14 @@
 import { usePathname } from 'next/navigation';
 import { ThemeProvider } from '@/components/theme-provider';
 
-/** Pages that keep their own dark look: the landing redirect and the login / signup screens. */
-const DARK_PAGES = ['/', '/login', '/signup'];
+/** Pages that keep their own dark look: the landing redirect and the signup screen. */
+const DARK_PAGES = ['/', '/signup'];
 
 /**
  * The attendee app (/join, /user/*) and the operator screens use the light design system from
  * docs/design (off-white ground, white cards, teal accent). The attendee app is used outdoors on
- * phones, and the operator screens match it so both read as one product. Only the login screens
- * keep the dark default.
+ * phones, and the operator screens match it so both read as one product. The operator login uses
+ * it too; only the landing redirect and signup keep the dark default.
  */
 export function AppThemeProvider({ children }) {
   const path = usePathname() ?? '';

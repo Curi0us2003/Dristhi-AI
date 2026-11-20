@@ -1,30 +1,18 @@
 /**
- * Admin app data (hackathon build): events, zones, staff and dispatches in Firestore.
- * Every document except events carries `eventId`. See docs/admin-app.md, "Hackathon build".
+ * Admin app data: events, zones, staff, dispatches and reports, served by the backend from
+ * Cloud SQL (backend/dristhi/routers/admin.py). Every call is scoped to the signed-in admin's
+ * organization by the backend.
  */
-import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  getDocs,
-  onSnapshot,
-  query,
-  serverTimestamp,
-  updateDoc,
-  where,
-  writeBatch,
-} from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
+import { api, toGrievance, ts, watch } from '@/lib/api';
 
 /**
- * Document shapes (Firestore). `id` is the document id.
+ * Shapes the screens use (camelCase). The backend sends snake_case; the mappers below convert.
  *
  * @typedef {'draft' | 'live' | 'ended'} EventStatus
  * @typedef {'guard' | 'supervisor' | 'medic' | 'doctor' | 'ambulance' | 'volunteer'} StaffKind
  * @typedef {'available' | 'dispatched' | 'on_scene' | 'off_duty'} StaffStatus
  *
- * @typedef {object} EventDoc  collection `events`
+ * @typedef {object} EventDoc  table `events`
  * @property {string} id
  * @property {string} name
  * @property {string} venue
@@ -35,8 +23,11 @@ import { auth, db } from '@/lib/firebase';
  * @property {number} warningPct    zone density % that shows Warning
  * @property {number} criticalPct   zone density % that shows Critical
  * @property {number} peoplePerGuard
+ * @property {string} slug         used in the attendee QR link /join?e=<slug>
+ * @property {number | null} lat    venue pin
+ * @property {number | null} lng
  *
- * @typedef {object} ZoneDoc  collection `zones`
+ * @typedef {object} ZoneDoc  table `zones`
  * @property {string} id
  * @property {string} eventId
  * @property {string} name
@@ -44,7 +35,7 @@ import { auth, db } from '@/lib/firebase';
  * @property {number} minGuards
  * @property {string | null} feedId  backend camera id (feeds.json key, e.g. feed_1)
  *
- * @typedef {object} StaffDoc  collection `staff`
+ * @typedef {object} StaffDoc  table `staff`
  * @property {string} id
  * @property {string} eventId
  * @property {string} name
@@ -53,14 +44,14 @@ import { auth, db } from '@/lib/firebase';
  * @property {StaffStatus} status
  * @property {string | null} zoneId
  *
- * @typedef {object} DispatchDoc  collection `dispatches`
+ * @typedef {object} DispatchDoc  table `dispatches`
  * @property {string} id
  * @property {string} eventId
  * @property {string} staffId
  * @property {string} staffName
  * @property {string | null} fromZoneName
  * @property {string | null} toZoneName
- * @property {string | null} grievanceId  Firestore grievance id when sent to a report
+ * @property {string | null} grievanceId  set when the staff member was sent to a report
  * @property {string} reason
  * @property {{ seconds: number } | null} createdAt
  *
@@ -96,156 +87,202 @@ export const DEFAULT_EVENT = {
   warningPct: 70,
   criticalPct: 90,
   peoplePerGuard: 100,
+  lat: null,
+  lng: null,
 };
 
-function byName(a, b) {
-  return a.name.localeCompare(b.name);
+// ── Mappers (backend snake_case → screen camelCase) ─────────────
+
+/** ISO time → value for <input type="datetime-local"> in the browser's time zone. */
+function toLocalInput(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-// ── Subscriptions ────────────────────────────────────────────────
+function fromLocalInput(value) {
+  return value ? new Date(value).toISOString() : null;
+}
+
+function toEvent(e) {
+  return {
+    id: e.id,
+    slug: e.slug,
+    name: e.name,
+    venue: e.venue ?? '',
+    city: e.city ?? '',
+    startsAt: toLocalInput(e.starts_at),
+    endsAt: toLocalInput(e.ends_at),
+    status: e.status,
+    warningPct: e.warning_pct,
+    criticalPct: e.critical_pct,
+    peoplePerGuard: e.people_per_guard,
+    attendeeCount: e.attendee_count,
+    lat: e.lat,
+    lng: e.lng,
+  };
+}
+
+function fromEvent(input) {
+  const out = {};
+  const map = {
+    name: 'name', venue: 'venue', city: 'city', status: 'status', warningPct: 'warning_pct',
+    criticalPct: 'critical_pct', peoplePerGuard: 'people_per_guard', lat: 'lat', lng: 'lng',
+  };
+  for (const [from, to] of Object.entries(map)) if (input[from] !== undefined) out[to] = input[from];
+  if (input.startsAt !== undefined) out.starts_at = fromLocalInput(input.startsAt);
+  if (input.endsAt !== undefined) out.ends_at = fromLocalInput(input.endsAt);
+  return out;
+}
+
+const toZone = (z) => ({
+  id: z.id, eventId: z.event_id, name: z.name, capacity: z.capacity, minGuards: z.min_guards, feedId: z.feed_id,
+});
+
+function fromZone(input) {
+  const out = {};
+  if (input.name !== undefined) out.name = input.name;
+  if (input.capacity !== undefined) out.capacity = input.capacity;
+  if (input.minGuards !== undefined) out.min_guards = input.minGuards;
+  if (input.feedId !== undefined) out.feed_id = input.feedId || null;
+  return out;
+}
+
+const toStaff = (s) => ({
+  id: s.id, eventId: s.event_id, name: s.name, phone: s.phone ?? '', kind: s.kind, status: s.status,
+  zoneId: s.zone_id, lat: s.lat, lng: s.lng,
+});
+
+function fromStaff(input) {
+  const out = {};
+  for (const key of ['name', 'kind', 'status', 'lat', 'lng']) if (input[key] !== undefined) out[key] = input[key];
+  if (input.phone !== undefined) out.phone = input.phone || null;
+  if (input.zoneId !== undefined) out.zone_id = input.zoneId || null;
+  return out;
+}
+
+const toDispatch = (d) => ({
+  id: d.id, eventId: d.event_id, staffId: d.staff_id, staffName: d.staff_name,
+  fromZoneName: d.from_zone_name, toZoneName: d.to_zone_name, grievanceId: d.grievance_id,
+  reason: d.reason, createdAt: ts(d.created_at),
+});
+
+const ev = (eventId) => `/api/events/${encodeURIComponent(eventId)}`;
+
+// ── Subscriptions (polling) ──────────────────────────────────────
 
 export function watchEvents(cb, onError) {
-  return onSnapshot(
-    collection(db, 'events'),
-    (snap) => cb(snap.docs.map((d) => ({ ...DEFAULT_EVENT, ...d.data(), id: d.id })).sort(byName)),
-    onError,
-  );
+  return watch(async () => (await api('/api/events')).map(toEvent), cb, onError);
 }
 
 export function watchZones(eventId, cb) {
-  return onSnapshot(query(collection(db, 'zones'), where('eventId', '==', eventId)), (snap) =>
-    cb(snap.docs.map((d) => ({ minGuards: 1, feedId: null, ...d.data(), id: d.id })).sort(byName)),
-  );
+  return watch(async () => (await api(`${ev(eventId)}/zones`)).map(toZone), cb);
 }
 
 export function watchStaff(eventId, cb) {
-  return onSnapshot(query(collection(db, 'staff'), where('eventId', '==', eventId)), (snap) =>
-    cb(
-      snap.docs
-        .map((d) => ({ phone: '', status: 'available', zoneId: null, ...d.data(), id: d.id }))
-        .sort(byName),
-    ),
-  );
+  return watch(async () => (await api(`${ev(eventId)}/staff`)).map(toStaff), cb);
 }
 
 export function watchDispatches(eventId, cb) {
-  return onSnapshot(query(collection(db, 'dispatches'), where('eventId', '==', eventId)), (snap) =>
-    cb(
-      snap.docs
-        .map((d) => ({ ...d.data(), id: d.id }))
-        .sort((a, b) => (b.createdAt?.seconds ?? Infinity) - (a.createdAt?.seconds ?? Infinity))
-        .slice(0, 20),
-    ),
-  );
+  return watch(async () => (await api(`${ev(eventId)}/dispatches`)).map(toDispatch), cb);
+}
+
+/** Reports of the event, newest first. `status` = 'new' for open ones only. */
+export function watchGrievances(eventId, cb, status) {
+  const q = status ? `?status=${status}` : '';
+  return watch(async () => (await api(`${ev(eventId)}/grievances${q}`)).map(toGrievance), cb);
 }
 
 // ── Events ───────────────────────────────────────────────────────
 
 export async function createEvent(input) {
-  const ref = await addDoc(collection(db, 'events'), {
-    ...input,
-    createdBy: auth.currentUser?.uid ?? null,
-    createdAt: serverTimestamp(),
-  });
-  return ref.id;
+  const created = await api('/api/events', { method: 'POST', body: fromEvent(input) });
+  return created.id;
 }
 
 export function updateEvent(id, input) {
-  return updateDoc(doc(db, 'events', id), input);
+  return api(ev(id), { method: 'PATCH', body: fromEvent(input) });
 }
 
 // ── Zones ────────────────────────────────────────────────────────
 
 export function createZone(input) {
-  return addDoc(collection(db, 'zones'), { ...input, createdAt: serverTimestamp() });
+  return api(`${ev(input.eventId)}/zones`, { method: 'POST', body: fromZone(input) });
 }
 
-export function updateZone(id, input) {
-  return updateDoc(doc(db, 'zones', id), input);
+/** Zone ids are unique, but the route is nested under the event: pass the zone's eventId. */
+export function updateZone(id, input, eventId = input.eventId) {
+  return api(`${ev(eventId ?? currentEventId)}/zones/${id}`, { method: 'PATCH', body: fromZone(input) });
 }
 
-/** Deletes a zone and unassigns the staff who were in it. */
-export async function deleteZone(zone) {
-  const staffInZone = await getDocs(
-    query(collection(db, 'staff'), where('eventId', '==', zone.eventId), where('zoneId', '==', zone.id)),
-  );
-  const batch = writeBatch(db);
-  staffInZone.docs.forEach((d) => batch.update(d.ref, { zoneId: null }));
-  batch.delete(doc(db, 'zones', zone.id));
-  await batch.commit();
+/** Deletes a zone; the backend unassigns the staff who were in it. */
+export function deleteZone(zone) {
+  return api(`${ev(zone.eventId)}/zones/${zone.id}`, { method: 'DELETE' });
 }
 
 // ── Staff ────────────────────────────────────────────────────────
 
 export function createStaff(input) {
-  return addDoc(collection(db, 'staff'), { ...input, createdAt: serverTimestamp() });
+  return api(`${ev(input.eventId)}/staff`, { method: 'POST', body: [fromStaff(input)] });
 }
 
 export async function createStaffMany(inputs) {
-  // Firestore batches hold up to 500 writes.
-  for (let i = 0; i < inputs.length; i += 450) {
-    const batch = writeBatch(db);
-    for (const input of inputs.slice(i, i + 450)) {
-      batch.set(doc(collection(db, 'staff')), { ...input, createdAt: serverTimestamp() });
-    }
-    await batch.commit();
-  }
+  if (!inputs.length) return;
+  await api(`${ev(inputs[0].eventId)}/staff`, { method: 'POST', body: inputs.map(fromStaff) });
 }
 
-export function updateStaff(id, input) {
-  return updateDoc(doc(db, 'staff', id), input);
+export function updateStaff(id, input, eventId = input.eventId) {
+  return api(`${ev(eventId ?? currentEventId)}/staff/${id}`, { method: 'PATCH', body: fromStaff(input) });
 }
 
-export function deleteStaff(id) {
-  return deleteDoc(doc(db, 'staff', id));
+export function deleteStaff(id, eventId) {
+  return api(`${ev(eventId ?? currentEventId)}/staff/${id}`, { method: 'DELETE' });
 }
 
-/** Moves staff between zones in one batch and logs each move as a dispatch. */
-export async function approveMoves(eventId, moves, reason) {
-  const batch = writeBatch(db);
-  for (const move of moves) {
-    batch.update(doc(db, 'staff', move.staff.id), { zoneId: move.toZone.id, status: 'dispatched' });
-    batch.set(doc(collection(db, 'dispatches')), {
-      eventId,
-      staffId: move.staff.id,
-      staffName: move.staff.name,
-      fromZoneId: move.fromZone?.id ?? null,
-      fromZoneName: move.fromZone?.name ?? null,
-      toZoneId: move.toZone.id,
-      toZoneName: move.toZone.name,
-      grievanceId: null,
-      reason,
-      createdBy: auth.currentUser?.uid ?? null,
-      createdAt: serverTimestamp(),
-    });
-  }
-  await batch.commit();
-}
-
-/** Sends a staff member to a grievance: marks the grievance assigned, the staff on scene, logs it. */
-export async function assignStaffToGrievance(eventId, staff, grievanceId, reason) {
-  const batch = writeBatch(db);
-  batch.update(doc(db, 'grievances', grievanceId), {
-    assignedStaffId: staff.id,
-    assignedStaffName: staff.name,
-    assignedStaffKind: staff.kind,
-    assignedAt: serverTimestamp(),
+/** Moves staff between zones in one transaction and logs each move as a dispatch. */
+export function approveMoves(eventId, moves, reason) {
+  return api(`${ev(eventId)}/dispatches/moves`, {
+    method: 'POST',
+    body: { moves: moves.map((m) => ({ staff_id: m.staff.id, to_zone_id: m.toZone.id })), reason },
   });
-  batch.update(doc(db, 'staff', staff.id), { status: 'on_scene' });
-  batch.set(doc(collection(db, 'dispatches')), {
-    eventId,
-    staffId: staff.id,
-    staffName: staff.name,
-    fromZoneId: staff.zoneId,
-    fromZoneName: null,
-    toZoneId: null,
-    toZoneName: null,
-    grievanceId,
-    reason,
-    createdBy: auth.currentUser?.uid ?? null,
-    createdAt: serverTimestamp(),
+}
+
+/** Sends a staff member to a report: report assigned, staff on scene, move logged. */
+export function assignStaffToGrievance(eventId, staff, grievanceId, reason) {
+  return api(`${ev(eventId)}/grievances/${grievanceId}/assign`, {
+    method: 'POST',
+    body: { staff_id: staff.id, reason },
   });
-  await batch.commit();
+}
+
+// ── Reports and attendee messages ────────────────────────────────
+
+export function resolveGrievance(eventId, grievanceId, actionTaken) {
+  return api(`${ev(eventId)}/grievances/${grievanceId}/resolve`, {
+    method: 'POST',
+    body: { action_taken: actionTaken },
+  });
+}
+
+export function deleteGrievance(eventId, grievanceId) {
+  return api(`${ev(eventId)}/grievances/${grievanceId}`, { method: 'DELETE' });
+}
+
+export function notifyAttendee(eventId, attendeeId, message) {
+  return api(`${ev(eventId)}/notifications`, {
+    method: 'POST',
+    body: { attendee_id: attendeeId, message },
+  });
+}
+
+/**
+ * Routes for zones and staff are nested under the event. Screens that only pass an id use the
+ * event picked in the switcher (contexts/event-context.jsx sets this).
+ */
+let currentEventId = null;
+export function setCurrentEventId(id) {
+  currentEventId = id;
 }
 
 export function densityStatus(pct, event) {

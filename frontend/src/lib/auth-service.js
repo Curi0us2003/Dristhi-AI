@@ -6,8 +6,8 @@ import {
   signInWithPopup,
   signOut,
 } from 'firebase/auth';
-import { collection, getDocs, limit, query, where } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
+import { auth } from '@/lib/firebase';
+import { api, ApiError } from '@/lib/api';
 import { cacheProfile, cacheToken, clearAuthCache } from '@/lib/auth-cache';
 const googleProvider = new GoogleAuthProvider();
 
@@ -28,9 +28,29 @@ export async function getIdToken(forceRefresh = false) {
   return token;
 }
 
+/** Backend admin row (Cloud SQL `admins`) → the profile the app keeps in session. */
+function toProfile(admin, firebaseUser) {
+  return {
+    id: admin.id,
+    email: admin.email,
+    fullName: admin.username || firebaseUser.displayName || 'Admin',
+    role: 'admin',
+    adminRole: admin.role,
+    username: admin.username,
+    employeeId: admin.employee_id,
+  };
+}
+
+/** Maps backend error codes to the codes getAuthErrorMessage knows. */
+function authCode(error) {
+  if (!(error instanceof ApiError)) return error;
+  if (error.code === 'not_an_admin' || error.code === 'admin_not_found') return new Error('ADMIN_NOT_FOUND');
+  if (error.code === 'network') return new Error('BACKEND_UNREACHABLE');
+  return new Error(error.code);
+}
+
 async function verifyRole(firebaseUser, role, adminCredentials) {
-  const email = firebaseUser.email;
-  if (!email) {
+  if (!firebaseUser.email) {
     throw new Error('NO_EMAIL');
   }
 
@@ -43,30 +63,16 @@ async function verifyRole(firebaseUser, role, adminCredentials) {
     throw new Error('ADMIN_FIELDS_REQUIRED');
   }
 
-  const adminQuery = query(
-    collection(db, 'admin'),
-    where('email', '==', email),
-    where('username', '==', adminCredentials.username),
-    where('employee_id', '==', adminCredentials.employeeId),
-    limit(1),
-  );
-  const snapshot = await getDocs(adminQuery);
-
-  if (snapshot.empty) {
-    throw new Error('ADMIN_NOT_FOUND');
+  // The backend verifies the Firebase ID token and checks the admin in Cloud SQL.
+  try {
+    const admin = await api('/api/auth/admin-login', {
+      method: 'POST',
+      body: { username: adminCredentials.username.trim(), employee_id: adminCredentials.employeeId.trim() },
+    });
+    return toProfile(admin, firebaseUser);
+  } catch (error) {
+    throw authCode(error);
   }
-
-  const doc = snapshot.docs[0];
-  const data = doc.data();
-
-  return {
-    id: doc.id,
-    email,
-    fullName: data.username || firebaseUser.displayName || 'Admin',
-    role: 'admin',
-    username: data.username,
-    employeeId: data.employee_id,
-  };
 }
 
 async function finalizeLogin(firebaseUser, role, adminCredentials) {
@@ -104,28 +110,15 @@ export async function resolveProfileFromFirebaseUser(firebaseUser) {
   if (cached && cached.email === firebaseUser.email) {
     return cached;
   }
+  if (!firebaseUser.email) return null;
 
-  const email = firebaseUser.email;
-  if (!email) return null;
-
-  const adminQuery = query(collection(db, 'admin'), where('email', '==', email), limit(1));
-  const adminSnapshot = await getDocs(adminQuery);
-  if (!adminSnapshot.empty) {
-    const doc = adminSnapshot.docs[0];
-    const data = doc.data();
-    const profile = {
-      id: doc.id,
-      email,
-      fullName: data.username || firebaseUser.displayName || 'Admin',
-      role: 'admin',
-      username: data.username,
-      employeeId: data.employee_id,
-    };
+  try {
+    const profile = toProfile(await api('/api/auth/me'), firebaseUser);
     cacheProfile(profile);
     return profile;
+  } catch {
+    return null;
   }
-
-  return null;
 }
 
 function getCachedProfileSafe() {
@@ -158,6 +151,9 @@ export function getAuthErrorMessage(code) {
     ADMIN_FIELDS_REQUIRED: 'Username and employee ID are required for admin login.',
     NO_EMAIL: 'Could not retrieve email from your account.',
     OPERATORS_ONLY: 'Only control room operators sign in here. Attendees scan the event QR code.',
+    BACKEND_UNREACHABLE: 'Cannot reach the server. Check that the backend is running.',
+    auth_not_configured: 'Sign-in is not configured on the server (FIREBASE_PROJECT_ID).',
+    database_not_configured: 'The server has no database configured.',
   };
   return messages[code] || 'Authentication failed. Please try again.';
 }

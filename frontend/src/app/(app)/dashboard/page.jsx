@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { keyMetrics } from '@/lib/data';
-import { db } from '@/lib/firebase';
 import { cn } from '@/lib/utils';
 import {
   ArrowUp,
@@ -30,16 +29,6 @@ import {
   Eye,
   Activity,
 } from 'lucide-react';
-import {
-  collection,
-  onSnapshot,
-  doc,
-  query,
-  where,
-  setDoc,
-  serverTimestamp,
-  getDoc,
-} from 'firebase/firestore';
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useEvent } from '@/contexts/event-context';
 import {
@@ -49,6 +38,7 @@ import {
   STAFF_STATUSES,
   STAFF_STATUS_LABEL,
   updateStaff,
+  watchGrievances,
   watchStaff,
   watchZones,
 } from '@/lib/admin-data';
@@ -232,44 +222,6 @@ export default function DashboardPage() {
     { total: 0, medical: 0, missing: 0, general: 0 },
   );
 
-  // Store analytics data to Firestore for caching
-  const storeAnalyticsInFirestore = async (summary, trend) => {
-    try {
-      const docRef = doc(db, 'dashboard_analytics', 'summary');
-      await setDoc(docRef, {
-        summary,
-        trendData: trend,
-        lastUpdated: serverTimestamp(),
-      });
-      console.info('Cached dashboard analytics in Firestore.');
-    } catch (err) {
-      console.error('Error caching dashboard analytics in Firestore:', err);
-    }
-  };
-
-  // Load analytics data from Firestore as a fallback
-  const loadAnalyticsFromFirestore = async () => {
-    try {
-      const docRef = doc(db, 'dashboard_analytics', 'summary');
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setAnalyticsSummary(data.summary);
-        processTrendData(data.trendData || []);
-        setBackendStatus('offline');
-        setAnalyticsError('Backend offline – showing cached analytics from Firestore.');
-        console.info('Loaded dashboard analytics from Firestore cache.');
-      } else {
-        setAnalyticsError('Backend offline and no cached analytics available.');
-      }
-    } catch (fsErr) {
-      console.error('Firestore analytics fallback failed:', fsErr);
-      setAnalyticsError('Backend offline and Firestore cache unavailable.');
-    } finally {
-      setAnalyticsLoading(false);
-    }
-  };
-
   // Format trend data for plotting in Recharts
   const processTrendData = (trendData) => {
     if (!trendData || trendData.length === 0) return;
@@ -324,12 +276,10 @@ export default function DashboardPage() {
 
       // Refresh CCTV snapshots
       refreshSnapshots();
-
-      // Store in Firestore
-      await storeAnalyticsInFirestore(data.summary, data.trend_data || []);
     } catch (err) {
       console.error('Failed to fetch analytics summary:', err);
-      await loadAnalyticsFromFirestore();
+      setBackendStatus('offline');
+      setAnalyticsError('Backend offline. Analytics will refresh when it is back.');
     } finally {
       setAnalyticsLoading(false);
     }
@@ -424,20 +374,22 @@ export default function DashboardPage() {
     fetchAnalyticsSummary();
     analyticsIntervalRef.current = setInterval(fetchAnalyticsSummary, 5000);
 
-    const grievancesQuery = query(collection(db, 'grievances'), where('status', '==', 'new'));
-    const grievancesUnsubscribe = onSnapshot(grievancesQuery, (snapshot) => {
-      const grievancesData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      setOpenGrievances(grievancesData);
-    });
-
     return () => {
       clearInterval(alertsInterval);
       if (analyticsIntervalRef.current) {
         clearInterval(analyticsIntervalRef.current);
       }
-      grievancesUnsubscribe();
     };
   }, []);
+
+  // Open reports of the selected event.
+  useEffect(() => {
+    if (!event) {
+      setOpenGrievances([]);
+      return;
+    }
+    return watchGrievances(event.id, setOpenGrievances, 'new');
+  }, [event]);
 
   /** Updates a guard in the staff roster, e.g. { zoneId } or { status }. */
   const handleGuardUpdate = async (staffId, change, label) => {

@@ -18,3 +18,8 @@ def database_url() -> str | None:
 def public_app_url() -> str:
     """Base URL of the frontend, used for the event QR link /join?e=<slug>."""
     return os.environ.get("PUBLIC_APP_URL", "http://localhost:9002").rstrip("/")
+
+
+def firebase_project_id() -> str | None:
+    """Firebase project whose ID tokens we accept. Locally with the Auth emulator: demo-dristhi."""
+    return os.environ.get("FIREBASE_PROJECT_ID") or os.environ.get("GOOGLE_CLOUD_PROJECT") or None

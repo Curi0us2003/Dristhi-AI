@@ -1,57 +1,46 @@
 /**
  * Reports an attendee sends from the assistant or the Help page. Nothing is written until the
- * attendee taps Send on a draft. Firestore stays the store until task 08 moves this to the backend.
+ * attendee taps Send on a draft. The backend stores the report in Cloud SQL and sends the
+ * attendee a confirmation notification (backend/dristhi/routers/reports.py).
  */
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { createGrievance } from '@/services/grievance-service';
+import { attendeeApi } from '@/lib/api';
 
 function position(coords) {
   return coords ? { lat: coords.lat, lng: coords.lng, accuracy_m: coords.accuracy_m } : undefined;
 }
 
-async function notify(reporter, message) {
-  await addDoc(collection(db, 'notifications'), {
-    attendeeId: reporter.attendeeId,
-    message,
-    createdAt: serverTimestamp(),
-    read: false,
+function send(reporter, body) {
+  if (!reporter?.attendeeId || reporter.attendeeId.startsWith('local-')) {
+    throw new Error('Join the event from its QR code before sending a report.');
+  }
+  return attendeeApi(`/api/attendees/${encodeURIComponent(reporter.attendeeId)}/reports`, {
+    method: 'POST',
+    body,
   });
 }
 
 export async function sendMedicalReport(reporter, d, coords) {
-  const res = await createGrievance({
+  const g = await send(reporter, {
     type: 'Medical Attention',
-    submittedBy: reporter.displayName,
-    attendeeId: reporter.attendeeId,
-    eventSlug: reporter.eventSlug,
     details: d.details.trim(),
-    location: d.where.trim() || (coords ? 'Shared location' : undefined),
+    location_text: d.where.trim() || (coords ? 'Shared location' : undefined),
     urgency: d.urgency,
     coords: position(coords),
   });
-  await notify(reporter, 'Your medical request reached the control room. Stay where you are if you can.');
-  return res;
+  return { success: true, grievanceId: g.id };
 }
 
 export async function sendMissingPersonReport(reporter, d, coords) {
   const lastSeen = [d.lastSeenPlace.trim(), d.lastSeenTime && `at ${d.lastSeenTime}`]
     .filter(Boolean)
     .join(' ');
-  const res = await createGrievance({
+  const g = await send(reporter, {
     type: 'Missing Person',
-    submittedBy: reporter.displayName,
-    attendeeId: reporter.attendeeId,
-    eventSlug: reporter.eventSlug,
-    personName: d.name.trim() || undefined,
+    person_name: d.name.trim() || undefined,
     details: d.description.trim(),
-    lastSeen,
-    photoDataUri: d.photoDataUri ?? undefined,
+    last_seen: lastSeen || undefined,
+    photo_data_uri: d.photoDataUri ?? undefined,
     coords: position(coords),
   });
-  await notify(
-    reporter,
-    `Your report for ${d.name.trim() || 'the missing person'} reached the control room. Staff have been alerted.`,
-  );
-  return res;
+  return { success: true, grievanceId: g.id };
 }

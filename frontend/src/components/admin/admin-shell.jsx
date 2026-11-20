@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import {
   AlertTriangle,
   Eye,
@@ -15,7 +14,8 @@ import {
   Settings2,
   Video,
 } from 'lucide-react';
-import { db } from '@/lib/firebase';
+import { useEvent } from '@/contexts/event-context';
+import { watchGrievances } from '@/lib/admin-data';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/auth-context';
 import {
@@ -38,18 +38,14 @@ const MAIN_ROUTES = [
 ];
 const SETUP_ROUTE = { href: '/setup', label: 'Event setup', icon: Settings2 };
 
-/** Count of open reports for the nav badge. */
+/** Count of open reports of the selected event, for the nav badge. */
 function useOpenReports() {
+  const { event } = useEvent();
   const [count, setCount] = useState(0);
-  useEffect(
-    () =>
-      onSnapshot(
-        query(collection(db, 'grievances'), where('status', '==', 'new')),
-        (snap) => setCount(snap.size),
-        () => setCount(0)
-      ),
-    []
-  );
+  useEffect(() => {
+    if (!event) return;
+    return watchGrievances(event.id, (list) => setCount(list.length), 'new');
+  }, [event]);
   return count;
 }
 

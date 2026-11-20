@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { watchEvents } from '@/lib/admin-data';
+import { setCurrentEventId, watchEvents } from '@/lib/admin-data';
 
 const STORAGE_KEY = 'dristhi.selectedEventId';
 
@@ -26,6 +26,7 @@ export function EventProvider({ children }) {
     return watchEvents(
       (list) => {
         setEvents(list);
+        setError(null);
         setLoading(false);
       },
       (e) => {
@@ -50,6 +51,9 @@ export function EventProvider({ children }) {
       events.find((e) => e.id === selectedId) ?? events.find((e) => e.status === 'live') ?? events[0] ?? null
     );
   }, [events, selectedId]);
+
+  // Staff and zone calls that pass only an id are routed under this event.
+  setCurrentEventId(event?.id ?? null);
 
   const value = useMemo(
     () => ({ events, event, loading, error, selectEvent }),
