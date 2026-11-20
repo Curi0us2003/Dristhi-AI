@@ -34,7 +34,8 @@
    "properties": {
     "type": "zone",
     "name": "Market",
-    "capacity": 500
+    "capacity": 500,
+    "feed_id": "feed_6"
    }
   },
   {
@@ -69,7 +70,8 @@
    "properties": {
     "type": "zone",
     "name": "Subway",
-    "capacity": 150
+    "capacity": 150,
+    "feed_id": "feed_5"
    }
   },
   {
@@ -104,7 +106,8 @@
    "properties": {
     "type": "zone",
     "name": "Mall Stage",
-    "capacity": 600
+    "capacity": 600,
+    "feed_id": "feed_2"
    }
   },
   {
@@ -139,7 +142,8 @@
    "properties": {
     "type": "zone",
     "name": "Main Entrance",
-    "capacity": 150
+    "capacity": 150,
+    "feed_id": "feed_1"
    }
   },
   {
@@ -174,7 +178,8 @@
    "properties": {
     "type": "zone",
     "name": "Lobby",
-    "capacity": 150
+    "capacity": 150,
+    "feed_id": "feed_8"
    }
   },
   {
@@ -209,7 +214,8 @@
    "properties": {
     "type": "zone",
     "name": "Red Street Road",
-    "capacity": 150
+    "capacity": 150,
+    "feed_id": "feed_3"
    }
   },
   {
@@ -244,7 +250,8 @@
    "properties": {
     "type": "zone",
     "name": "Exit Gate",
-    "capacity": 120
+    "capacity": 120,
+    "feed_id": "feed_4"
    }
   },
   {
@@ -279,7 +286,8 @@
    "properties": {
     "type": "zone",
     "name": "Cross Road",
-    "capacity": 200
+    "capacity": 200,
+    "feed_id": "feed_7"
    }
   },
   {
@@ -294,7 +302,7 @@
    "properties": {
     "type": "poi",
     "kind": "washroom",
-    "name": "Washroom · Stage south"
+    "name": "Washroom \u00b7 Stage south"
    }
   },
   {
@@ -309,7 +317,7 @@
    "properties": {
     "type": "poi",
     "kind": "washroom",
-    "name": "Washroom · Main Entrance"
+    "name": "Washroom \u00b7 Main Entrance"
    }
   },
   {
@@ -324,7 +332,7 @@
    "properties": {
     "type": "poi",
     "kind": "washroom",
-    "name": "Washroom · Lobby"
+    "name": "Washroom \u00b7 Lobby"
    }
   },
   {
@@ -339,7 +347,7 @@
    "properties": {
     "type": "poi",
     "kind": "first_aid",
-    "name": "First aid · Main Entrance"
+    "name": "First aid \u00b7 Main Entrance"
    }
   },
   {
@@ -354,7 +362,7 @@
    "properties": {
     "type": "poi",
     "kind": "first_aid",
-    "name": "First aid · Red Street"
+    "name": "First aid \u00b7 Red Street"
    }
   },
   {
@@ -369,7 +377,7 @@
    "properties": {
     "type": "poi",
     "kind": "exit",
-    "name": "Exit · Exit Gate"
+    "name": "Exit \u00b7 Exit Gate"
    }
   },
   {
@@ -384,7 +392,7 @@
    "properties": {
     "type": "poi",
     "kind": "exit",
-    "name": "Exit · Main gate"
+    "name": "Exit \u00b7 Main gate"
    }
   },
   {
@@ -399,7 +407,7 @@
    "properties": {
     "type": "poi",
     "kind": "exit",
-    "name": "Exit · Subway stairs"
+    "name": "Exit \u00b7 Subway stairs"
    }
   },
   {
@@ -414,7 +422,7 @@
    "properties": {
     "type": "poi",
     "kind": "water",
-    "name": "Water · Stage"
+    "name": "Water \u00b7 Stage"
    }
   },
   {
@@ -429,7 +437,7 @@
    "properties": {
     "type": "poi",
     "kind": "water",
-    "name": "Water · Market"
+    "name": "Water \u00b7 Market"
    }
   },
   {
@@ -444,7 +452,7 @@
    "properties": {
     "type": "poi",
     "kind": "lost_found",
-    "name": "Lost and found · Lobby"
+    "name": "Lost and found \u00b7 Lobby"
    }
   },
   {
@@ -459,7 +467,7 @@
    "properties": {
     "type": "poi",
     "kind": "cloak_room",
-    "name": "Cloak room · Main Entrance"
+    "name": "Cloak room \u00b7 Main Entrance"
    }
   },
   {
@@ -474,7 +482,7 @@
    "properties": {
     "type": "poi",
     "kind": "help_point",
-    "name": "Help point · Exit Gate"
+    "name": "Help point \u00b7 Exit Gate"
    }
   },
   {
@@ -489,7 +497,7 @@
    "properties": {
     "type": "poi",
     "kind": "help_point",
-    "name": "Help point · Market"
+    "name": "Help point \u00b7 Market"
    }
   },
   {

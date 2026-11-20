@@ -57,6 +57,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { summarizeDashboard } from '@/ai/flows/summarize-dashboard.client';
+import { SummaryContent } from '@/components/admin/summary-content';
 import { BACKEND_URL } from '@/lib/backend-url';
 import { ATTENDEE_URL } from '@/lib/app-urls';
 import Link from 'next/link';
@@ -924,12 +925,16 @@ export default function DashboardPage() {
 
       {/* AI Intel Summary Dialog */}
       <Dialog open={isSummaryDialogOpen} onOpenChange={setIsSummaryDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg bg-ds-ground">
           <DialogHeader>
-            <DialogTitle>Live Event Summary</DialogTitle>
-            <DialogDescription>An AI-generated summary of the current event status.</DialogDescription>
+            <DialogTitle className="font-display text-xl">Live event summary</DialogTitle>
+            <DialogDescription>
+              {event?.name ? `${event.name} · ` : ''}as of {new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+            </DialogDescription>
           </DialogHeader>
-          <div className="prose prose-sm dark:prose-invert whitespace-pre-wrap">{summary}</div>
+          <div className="max-h-[60vh] overflow-y-auto pr-1">
+            <SummaryContent text={summary} />
+          </div>
           <DialogFooter>
             <Button onClick={() => setIsSummaryDialogOpen(false)}>Close</Button>
           </DialogFooter>
