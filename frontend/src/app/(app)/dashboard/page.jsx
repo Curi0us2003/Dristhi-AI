@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { keyMetrics, sectors as sectorOptions } from '@/lib/data';
+import { keyMetrics } from '@/lib/data';
 import { db } from '@/lib/firebase';
 import { cn } from '@/lib/utils';
 import {
@@ -34,15 +34,25 @@ import {
   collection,
   onSnapshot,
   doc,
-  addDoc,
-  updateDoc,
   query,
   where,
   setDoc,
   serverTimestamp,
   getDoc,
 } from 'firebase/firestore';
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import { useEvent } from '@/contexts/event-context';
+import {
+  createStaff,
+  GUARD_KINDS,
+  rosterViews,
+  STAFF_STATUSES,
+  STAFF_STATUS_LABEL,
+  updateStaff,
+  watchStaff,
+  watchZones,
+} from '@/lib/admin-data';
+import { StatusBadge } from '@/components/admin/status-badge';
 import {
   Dialog,
   DialogContent,
@@ -70,18 +80,6 @@ const metricIcons = {
   'Open Grievances': AlertOctagon,
 };
 
-const getStatusBadgeVariant = (status) => {
-  switch (status) {
-    case 'Active':
-      return 'default';
-    case 'Alert':
-      return 'destructive';
-    case 'Standby':
-      return 'secondary';
-    default:
-      return 'outline';
-  }
-};
 
 const CCTV_FEEDS_CONFIG = [
   { id: 'feed_1', name: 'Main Entrance', area: 'entrance', color: '#3b82f6' },
@@ -94,45 +92,59 @@ const CCTV_FEEDS_CONFIG = [
   { id: 'feed_8', name: 'Lobby', area: 'lobby', color: '#f97316' },
 ];
 
-function AddGuardForm({ onGuardAdded }) {
+const NO_ZONE = '__none__';
+
+/** Status tag tone per roster status (word shown next to the colour). */
+const STAFF_STATUS_TONE = {
+  available: 'normal',
+  dispatched: 'predicted',
+  on_scene: 'warning',
+  off_duty: 'muted',
+};
+
+/** Adds a guard to the selected event's staff roster (same data as Event setup → Staff). */
+function AddGuardForm({ eventId, zones, onGuardAdded }) {
   const [name, setName] = useState('');
-  const [sector, setSector] = useState('');
-  const [status, setStatus] = useState('Standby');
+  const [zoneId, setZoneId] = useState(NO_ZONE);
   const [phone, setPhone] = useState('');
   const { toast } = useToast();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!name || !phone) {
+    if (!eventId) {
+      toast({ title: 'No event selected', description: 'Create an event in Event setup first.', variant: 'destructive' });
+      return;
+    }
+    if (!name.trim()) {
       toast({
         title: 'Missing Information',
-        description: 'Please fill out all required fields.',
+        description: 'Please enter the guard name.',
         variant: 'destructive',
       });
       return;
     }
     try {
-      await addDoc(collection(db, 'guards'), {
-        name,
-        sector,
-        status,
-        phone,
+      await createStaff({
+        eventId,
+        name: name.trim(),
+        phone: phone.trim(),
+        kind: 'guard',
+        status: 'available',
+        zoneId: zoneId === NO_ZONE ? null : zoneId,
       });
       toast({
         title: 'Guard Added',
-        description: `${name} has been added to the roster.`,
+        description: `${name.trim()} has been added to the roster.`,
       });
       onGuardAdded(); // Close dialog
-      // Reset form
       setName('');
-      setSector('');
-      setStatus('Standby');
+      setZoneId(NO_ZONE);
       setPhone('');
     } catch (error) {
       console.error('Error adding guard: ', error);
       toast({
         title: 'Error adding guard',
-        description: error.message || 'Could not add guard. Please check console and Firebase rules.',
+        description: error.message || 'Could not add guard. Please try again.',
         variant: 'destructive',
       });
     }
@@ -142,13 +154,7 @@ function AddGuardForm({ onGuardAdded }) {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="name">Guard Name</Label>
-        <Input
-          id="name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="John Doe"
-          required
-        />
+        <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ravi Kumar" required />
       </div>
       <div className="space-y-2">
         <Label htmlFor="phone">Phone Number</Label>
@@ -157,39 +163,24 @@ function AddGuardForm({ onGuardAdded }) {
           type="tel"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
-          placeholder="123-456-7890"
-          required
+          placeholder="+91 98450 12345"
         />
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="sector">Sector</Label>
-          <Select value={sector} onValueChange={setSector}>
-            <SelectTrigger id="sector">
-              <SelectValue placeholder="Select a sector" />
-            </SelectTrigger>
-            <SelectContent>
-              {sectorOptions.map((s) => (
-                <SelectItem key={s.name} value={s.name}>
-                  {s.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="status">Status</Label>
-          <Select value={status} onValueChange={(v) => setStatus(v)}>
-            <SelectTrigger id="status">
-              <SelectValue placeholder="Select status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Active">Active</SelectItem>
-              <SelectItem value="Standby">Standby</SelectItem>
-              <SelectItem value="Alert">Alert</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="space-y-2">
+        <Label htmlFor="zone">Zone</Label>
+        <Select value={zoneId} onValueChange={setZoneId}>
+          <SelectTrigger id="zone">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NO_ZONE}>Unassigned (standby)</SelectItem>
+            {zones.map((z) => (
+              <SelectItem key={z.id} value={z.id}>
+                {z.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <DialogFooter>
         <Button type="submit">Add Guard</Button>
@@ -199,14 +190,19 @@ function AddGuardForm({ onGuardAdded }) {
 }
 
 export default function DashboardPage() {
-  const [guards, setGuards] = useState([]);
+  const { event } = useEvent();
+  const [staff, setStaff] = useState([]);
+  const [zones, setZones] = useState([]);
   const [metrics, setMetrics] = useState(keyMetrics);
   const [isAddGuardOpen, setAddGuardOpen] = useState(false);
   const { toast } = useToast();
   const [openGrievances, setOpenGrievances] = useState([]);
   const [alerts, setAlerts] = useState([]);
-  const [ambulances, setAmbulances] = useState([]);
-  const [medicalStaff, setMedicalStaff] = useState([]);
+
+  // Guards, ambulances and medical staff all come from the selected event's staff roster.
+  const { guards, ambulances, medicalStaff } = useMemo(() => rosterViews(staff, zones), [staff, zones]);
+  const guardRoster = useMemo(() => staff.filter((s) => GUARD_KINDS.includes(s.kind)), [staff]);
+  const zoneName = (id) => zones.find((z) => z.id === id)?.name ?? 'Unassigned';
   const [summary, setSummary] = useState('');
   const [isSummaryLoading, setIsSummaryLoading] = useState(false);
   const [isSummaryDialogOpen, setIsSummaryDialogOpen] = useState(false);
@@ -338,37 +334,52 @@ export default function DashboardPage() {
     }
   };
 
+  // Staff roster and zones of the selected event (Event setup → Staff / Zones).
   useEffect(() => {
-    // Fetch guards data from Firestore in real-time
-    const guardsUnsubscribe = onSnapshot(collection(db, 'guards'), (snapshot) => {
-      const guardsData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      setGuards(guardsData);
+    if (!event) {
+      setStaff([]);
+      setZones([]);
+      return;
+    }
+    const unsubs = [watchStaff(event.id, setStaff), watchZones(event.id, setZones)];
+    return () => unsubs.forEach((u) => u());
+  }, [event]);
 
-      setMetrics((prevMetrics) => {
-        const activeGuardsCount = guardsData.filter((g) => g.status === 'Active').length;
-        const currentActiveGuardsMetric = prevMetrics['Active Guards'];
-        if (!currentActiveGuardsMetric) return prevMetrics;
+  // "Active Guards" = guards on duty (not off duty) in the roster. The first roster load sets the
+  // number without a change; later edits show the difference.
+  const guardsCountedRef = useRef(false);
+  useEffect(() => {
+    const activeGuardsCount = guards.length;
+    const firstLoad = !guardsCountedRef.current;
+    if (activeGuardsCount > 0) guardsCountedRef.current = true;
+    setMetrics((prevMetrics) => {
+      const currentActiveGuardsMetric = prevMetrics['Active Guards'];
+      if (!currentActiveGuardsMetric) return prevMetrics;
 
-        const currentActiveGuards = parseInt(currentActiveGuardsMetric.value) || 0;
-        const changeType =
-          activeGuardsCount > currentActiveGuards
-            ? 'increase'
-            : activeGuardsCount < currentActiveGuards
-              ? 'decrease'
-              : 'neutral';
-
+      if (firstLoad) {
         return {
           ...prevMetrics,
-          'Active Guards': {
-            ...currentActiveGuardsMetric,
-            value: activeGuardsCount.toString(),
-            change: `${changeType === 'increase' ? '+' : ''}${activeGuardsCount - currentActiveGuards}`,
-            changeType: changeType,
-          },
+          'Active Guards': { ...currentActiveGuardsMetric, value: activeGuardsCount.toString(), change: '0', changeType: 'neutral' },
         };
-      });
-    });
+      }
 
+      const currentActiveGuards = parseInt(currentActiveGuardsMetric.value) || 0;
+      if (activeGuardsCount === currentActiveGuards) return prevMetrics;
+      const changeType = activeGuardsCount > currentActiveGuards ? 'increase' : 'decrease';
+
+      return {
+        ...prevMetrics,
+        'Active Guards': {
+          ...currentActiveGuardsMetric,
+          value: activeGuardsCount.toString(),
+          change: `${changeType === 'increase' ? '+' : ''}${activeGuardsCount - currentActiveGuards}`,
+          changeType: changeType,
+        },
+      };
+    });
+  }, [guards.length]);
+
+  useEffect(() => {
     // Fetch alerts & update states
     const fetchAlerts = async () => {
       try {
@@ -418,35 +429,22 @@ export default function DashboardPage() {
       setOpenGrievances(grievancesData);
     });
 
-    const ambulancesUnsubscribe = onSnapshot(collection(db, 'ambulances'), (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      setAmbulances(data);
-    });
-
-    const medicalStaffUnsubscribe = onSnapshot(collection(db, 'medical_staff'), (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      setMedicalStaff(data);
-    });
-
     return () => {
-      guardsUnsubscribe();
       clearInterval(alertsInterval);
       if (analyticsIntervalRef.current) {
         clearInterval(analyticsIntervalRef.current);
       }
       grievancesUnsubscribe();
-      ambulancesUnsubscribe();
-      medicalStaffUnsubscribe();
     };
   }, []);
 
-  const handleGuardUpdate = async (guardId, field, value) => {
-    const guardRef = doc(db, 'guards', guardId);
+  /** Updates a guard in the staff roster, e.g. { zoneId } or { status }. */
+  const handleGuardUpdate = async (staffId, change, label) => {
     try {
-      await updateDoc(guardRef, { [field]: value });
+      await updateStaff(staffId, change);
       toast({
         title: 'Guard Updated',
-        description: `Guard's ${field} has been updated.`,
+        description: `Guard's ${label} has been updated.`,
       });
     } catch (error) {
       console.error('Error updating guard: ', error);
@@ -614,6 +612,9 @@ export default function DashboardPage() {
         grievances={openGrievances}
         ambulances={ambulances}
         medicalStaff={medicalStaff}
+        eventId={event?.id ?? null}
+        staff={staff}
+        zones={zones}
       />
 
       {/* Real-time Crowd Analytics Summary and Trends */}
@@ -853,14 +854,20 @@ export default function DashboardPage() {
 
       {/* Guard Status Table & Grid */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
           <div>
             <CardTitle>Guard Status</CardTitle>
-            <CardDescription>Manage your security team in real-time.</CardDescription>
+            <CardDescription>
+              Guards and supervisors from this event&apos;s staff roster. Full roster in{' '}
+              <Link href="/setup" className="font-medium text-ds-accent-ink hover:underline">
+                Event setup
+              </Link>
+              .
+            </CardDescription>
           </div>
           <Dialog open={isAddGuardOpen} onOpenChange={setAddGuardOpen}>
             <DialogTrigger asChild>
-              <Button size="sm">
+              <Button size="sm" disabled={!event}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 New Guard
               </Button>
@@ -868,94 +875,110 @@ export default function DashboardPage() {
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
                 <DialogTitle>Add New Guard</DialogTitle>
-                <DialogDescription>
-                  Enter the details for the new guard. Click save when you're done.
-                </DialogDescription>
+                <DialogDescription>Adds the guard to {event?.name ?? 'this event'}&apos;s staff roster.</DialogDescription>
               </DialogHeader>
-              <AddGuardForm onGuardAdded={() => setAddGuardOpen(false)} />
+              <AddGuardForm eventId={event?.id} zones={zones} onGuardAdded={() => setAddGuardOpen(false)} />
             </DialogContent>
           </Dialog>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Guard</TableHead>
-                <TableHead>Sector</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {guards.map((guard) => (
-                <TableRow key={guard.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Avatar>
-                        <AvatarFallback>
-                          <User className="h-5 w-5" />
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="font-medium">{guard.name}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Select
-                      value={guard.sector}
-                      onValueChange={(value) => handleGuardUpdate(guard.id, 'sector', value)}
-                    >
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Select Sector" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {sectorOptions.map((s) => (
-                          <SelectItem key={s.name} value={s.name}>
-                            {s.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <Select
-                      value={guard.status}
-                      onValueChange={(value) => handleGuardUpdate(guard.id, 'status', value)}
-                    >
-                      <SelectTrigger className="w-[120px]">
-                        <SelectValue asChild>
-                          <Badge variant={getStatusBadgeVariant(guard.status)} className="capitalize">
-                            {guard.status}
-                          </Badge>
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Active">
-                          <Badge variant="default">Active</Badge>
-                        </SelectItem>
-                        <SelectItem value="Standby">
-                          <Badge variant="secondary">Standby</Badge>
-                        </SelectItem>
-                        <SelectItem value="Alert">
-                          <Badge variant="destructive">Alert</Badge>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">{guard.phone}</span>
-                      <Button variant="outline" size="sm" asChild>
-                        <a href={`tel:${guard.phone}`}>
-                          <Phone className="h-4 w-4 mr-2" />
-                          Contact
-                        </a>
-                      </Button>
-                    </div>
-                  </TableCell>
+        <CardContent className="overflow-x-auto">
+          {!event ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              No event selected. Create one in Event setup to manage guards.
+            </p>
+          ) : guardRoster.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              No guards on the roster yet. Add one here or import a CSV in Event setup.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Guard</TableHead>
+                  <TableHead>Zone</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Contact</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {guardRoster.map((guard) => (
+                  <TableRow key={guard.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Avatar>
+                          <AvatarFallback>
+                            <User className="h-5 w-5" />
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-medium">{guard.name}</div>
+                          {guard.kind === 'supervisor' && (
+                            <div className="text-xs text-muted-foreground">Supervisor</div>
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={guard.zoneId ?? NO_ZONE}
+                        onValueChange={(value) =>
+                          handleGuardUpdate(guard.id, { zoneId: value === NO_ZONE ? null : value }, 'zone')
+                        }
+                      >
+                        <SelectTrigger className="w-[180px]" aria-label={`Zone for ${guard.name}`}>
+                          <SelectValue>{zoneName(guard.zoneId)}</SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={NO_ZONE}>Unassigned</SelectItem>
+                          {zones.map((z) => (
+                            <SelectItem key={z.id} value={z.id}>
+                              {z.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={guard.status}
+                        onValueChange={(value) => handleGuardUpdate(guard.id, { status: value }, 'status')}
+                      >
+                        <SelectTrigger className="w-[150px]" aria-label={`Status for ${guard.name}`}>
+                          <SelectValue>
+                            <StatusBadge tone={STAFF_STATUS_TONE[guard.status] ?? 'muted'}>
+                              {STAFF_STATUS_LABEL[guard.status] ?? guard.status}
+                            </StatusBadge>
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {STAFF_STATUSES.map((st) => (
+                            <SelectItem key={st} value={st}>
+                              {STAFF_STATUS_LABEL[st]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      {guard.phone ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground">{guard.phone}</span>
+                          <Button variant="outline" size="sm" asChild>
+                            <a href={`tel:${guard.phone}`}>
+                              <Phone className="h-4 w-4 mr-2" />
+                              Call
+                            </a>
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">No phone</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 

@@ -20,22 +20,66 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, doc, updateDoc, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { generateAutonomousCommandPlan } from '@/ai/flows/autonomous-command.client';
+import { approveMoves, assignStaffToGrievance } from '@/lib/admin-data';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import {} from '@/lib/data';
+/** Attendee reports are addressed by attendee id; older reports by email. */
+function notificationRecipient(g) {
+  if (!g) return null;
+  if (g.attendeeId) return { attendeeId: g.attendeeId };
+  const email = g.email || g.submittedBy;
+  return email ? { userEmail: email } : null;
+}
+
+/**
+ * `guards`, `ambulances` and `medicalStaff` are roster views (see rosterViews in admin-data) used
+ * as planner input; `staff`, `zones` and `eventId` are the event's roster, which approved actions
+ * update.
+ */
 export default function AutonomousAgent({
   guards,
   alerts,
   grievances,
   ambulances,
   medicalStaff,
+  eventId,
+  staff = [],
+  zones = [],
   onExecutionCompleted,
 }) {
+  const staffById = (id) => staff.find((s) => s.id === id);
+  const zoneById = (id) => zones.find((z) => z.id === id) ?? null;
+
+  /** The planner names a target sector: a zone name, or the camera name of a zone's feed. */
+  const zoneForSector = (sector) => {
+    const wanted = (sector || '').trim().toLowerCase();
+    const byName = zones.find((z) => z.name.trim().toLowerCase() === wanted);
+    if (byName) return byName;
+    const alert = alerts.find((a) => (a.feed_name || '').trim().toLowerCase() === wanted);
+    return alert ? zones.find((z) => z.feedId && z.feedId === alert.feed_id) ?? null : null;
+  };
+
+  /** Sends staff to a report the same way the Reports page does, and notifies the reporter. */
+  const sendToReport = async (staffId, grievanceId, reason, message) => {
+    const member = staffById(staffId);
+    if (!eventId || !member) throw new Error('Staff member is not on this event roster');
+    await assignStaffToGrievance(eventId, member, grievanceId, reason);
+    const recipient = notificationRecipient(grievances.find((g) => g.id === grievanceId));
+    if (recipient) {
+      await addDoc(collection(db, 'notifications'), {
+        ...recipient,
+        message,
+        createdAt: serverTimestamp(),
+        read: false,
+      });
+    }
+    return recipient;
+  };
   const [agentState, setAgentState] = useState('idle');
   const [plan, setPlan] = useState(null);
   const [logs, setLogs] = useState([]);
@@ -61,7 +105,7 @@ export default function AutonomousAgent({
     // Simulate telemetry gathering animation
     await new Promise((r) => setTimeout(r, 800));
     addLog(
-      `Gathering active telemetry: ${guards.length} guards, ${alerts.length} CCTV alert zones, ${grievances.filter((g) => g.status === 'new').length} open grievances...`,
+      `Gathering active telemetry: ${guards.length} guards, ${alerts.length} CCTV alert zones, ${grievances.filter((g) => g.status === 'new' && !g.assignedStaffId).length} unassigned reports...`,
     );
 
     await new Promise((r) => setTimeout(r, 600));
@@ -72,7 +116,8 @@ export default function AutonomousAgent({
       const generatedPlan = await generateAutonomousCommandPlan({
         guards,
         alerts,
-        grievances,
+        // Reports someone is already handling (assigned from Reports) are left alone.
+        grievances: grievances.filter((g) => !g.assignedStaffId),
         ambulances,
         medicalStaff,
       });
@@ -112,60 +157,43 @@ export default function AutonomousAgent({
           addLog(`[REASSIGN] Reassigning Guard ${action.guardName} to ${action.toSector}...`);
           await new Promise((r) => setTimeout(r, 800)); // Cinematic pacing
 
-          await updateDoc(doc(db, 'guards', action.guardId), {
-            sector: action.toSector,
-            status: 'Active',
-          });
-          addLog(`[SUCCESS] Guard ${action.guardName} reassigned to ${action.toSector}.`);
+          const member = staffById(action.guardId);
+          const toZone = zoneForSector(action.toSector);
+          if (!eventId || !member) throw new Error(`Guard ${action.guardName} is not on this event roster`);
+          if (!toZone) throw new Error(`No zone named "${action.toSector}" in this event`);
+          await approveMoves(
+            eventId,
+            [{ staff: member, fromZone: zoneById(member.zoneId), toZone }],
+            action.reason || `Autonomous agent: move ${member.name} to ${toZone.name}`,
+          );
+          addLog(`[SUCCESS] Guard ${action.guardName} sent to ${toZone.name} (logged as a dispatch).`);
         } else if (action.type === 'DEPLOY_AMBULANCE') {
           addLog(`[DISPATCH] Deploying Ambulance ${action.ambulanceNumber} to ${action.location}...`);
           await new Promise((r) => setTimeout(r, 1000));
 
-          // Resolve grievance
-          await updateDoc(doc(db, 'grievances', action.grievanceId), {
-            status: 'resolved',
-            actionTaken: `Ambulance ${action.ambulanceNumber} deployed autonomously by Drishti Agent`,
-          });
-
-          // Mark ambulance as occupied
-          await updateDoc(doc(db, 'ambulances', action.ambulanceId), {
-            isAvailable: false,
-          });
-
-          // Send push notification to user
-          await addDoc(collection(db, 'notifications'), {
-            userEmail: action.userEmail,
-            message: `🚨 Emergency Medical Alert: Ambulance ${action.ambulanceNumber} has been dispatched to your location (${action.location}) immediately. The team is reaching you. Please stay calm.`,
-            createdAt: serverTimestamp(),
-            read: false,
-          });
+          // Assign the ambulance to the report (marks it on scene, logs a dispatch). The report
+          // stays open as "Assigned" until it is resolved from Reports.
+          const recipient = await sendToReport(
+            action.ambulanceId,
+            action.grievanceId,
+            `Autonomous agent: ambulance ${action.ambulanceNumber} to ${action.location || 'medical report'}`,
+            `Ambulance ${action.ambulanceNumber} has been dispatched to your location${action.location ? ` (${action.location})` : ''}. The team is on the way. Please stay calm.`,
+          );
           addLog(
-            `[SUCCESS] Ambulance ${action.ambulanceNumber} deployed. Dispatched instant notification to user (${action.userEmail}).`,
+            `[SUCCESS] Ambulance ${action.ambulanceNumber} assigned to the report.${recipient ? ' Reporter notified.' : ''}`,
           );
         } else if (action.type === 'ASSIGN_MEDICAL_STAFF') {
           addLog(`[DISPATCH] Dispatching Medical Staff ${action.medicalStaffName} to ${action.location}...`);
           await new Promise((r) => setTimeout(r, 900));
 
-          // Resolve grievance
-          await updateDoc(doc(db, 'grievances', action.grievanceId), {
-            status: 'resolved',
-            actionTaken: `Medical staff ${action.medicalStaffName} sent autonomously by Drishti Agent`,
-          });
-
-          // Mark staff as occupied
-          await updateDoc(doc(db, 'medical_staff', action.medicalStaffId), {
-            status: 'on-duty',
-          });
-
-          // Send push notification to user
-          await addDoc(collection(db, 'notifications'), {
-            userEmail: action.userEmail,
-            message: `🩺 Medical Assistance Assigned: ${action.medicalStaffName} is on their way to assist you with medical aid at ${action.location}.`,
-            createdAt: serverTimestamp(),
-            read: false,
-          });
+          const recipient = await sendToReport(
+            action.medicalStaffId,
+            action.grievanceId,
+            `Autonomous agent: ${action.medicalStaffName} to ${action.location || 'medical report'}`,
+            `${action.medicalStaffName} is on the way to help you${action.location ? ` at ${action.location}` : ''}.`,
+          );
           addLog(
-            `[SUCCESS] Medical staff ${action.medicalStaffName} deployed. Dispatched notification to user (${action.userEmail}).`,
+            `[SUCCESS] ${action.medicalStaffName} assigned to the report.${recipient ? ' Reporter notified.' : ''}`,
           );
         }
       } catch (err) {
