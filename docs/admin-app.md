@@ -39,7 +39,7 @@ Rules of the hackathon build:
   fields (`assignedStaffId`, `assignedStaffName`, `assignedStaffKind`, `assignedAt`); `status` stays
   `new` / `resolved`. Grievances have no `eventId` yet, so every event sees all of them.
 - The selected event is remembered in the browser (`localStorage`), not the URL.
-- The old Dashboard still reads the old `guards`, `medical_staff` and `ambulances` collections.
+- The Dashboard (Guard Status, Active Guards, AI summary) and the autonomous agent read and write the event's `staff` roster (`rosterViews` in `admin-data.js`). The old `guards`, `medical_staff` and `ambulances` collections are no longer read; only the old seed scripts in `src/scripts/` still write them.
 
 Run locally without a Firebase project (needs Java for the Firestore emulator):
 

@@ -254,3 +254,52 @@ export function densityStatus(pct, event) {
   if (pct >= event.warningPct) return 'Warning';
   return 'Normal';
 }
+
+// ── Roster views for older screens ───────────────────────────────
+
+export const GUARD_KINDS = ['guard', 'supervisor'];
+export const MEDICAL_KINDS = ['medic', 'doctor'];
+
+/**
+ * The Dashboard summary and the autonomous agent were written for the old `guards`,
+ * `ambulances` and `medical_staff` collections. This builds the same shapes from the event's
+ * staff roster so those screens read one source of truth. `id` is always the staff doc id.
+ *
+ * @param {StaffDoc[]} staff
+ * @param {ZoneDoc[]} zones
+ */
+export function rosterViews(staff, zones) {
+  const zoneName = (id) => zones.find((z) => z.id === id)?.name ?? null;
+  const onDuty = staff.filter((s) => s.status !== 'off_duty');
+
+  const guards = onDuty
+    .filter((s) => GUARD_KINDS.includes(s.kind))
+    .map((s) => ({
+      id: s.id,
+      name: s.name,
+      phone: s.phone,
+      sector: zoneName(s.zoneId) ?? 'Standby Pool',
+      // Old vocabulary: Active = posted in a zone, Standby = free to move, Alert = busy at an incident.
+      status: s.status === 'on_scene' ? 'Alert' : s.status === 'available' && !s.zoneId ? 'Standby' : 'Active',
+    }));
+
+  const ambulances = staff
+    .filter((s) => s.kind === 'ambulance')
+    .map((s) => ({
+      id: s.id,
+      ambulanceNumber: s.name,
+      zone: zoneName(s.zoneId) ?? 'Unassigned',
+      isAvailable: s.status === 'available',
+    }));
+
+  const medicalStaff = staff
+    .filter((s) => MEDICAL_KINDS.includes(s.kind))
+    .map((s) => ({
+      id: s.id,
+      name: s.name,
+      status: s.status === 'available' ? 'available' : s.status === 'off_duty' ? 'off-duty' : 'on-duty',
+      specialization: STAFF_KIND_LABEL[s.kind],
+    }));
+
+  return { guards, ambulances, medicalStaff };
+}
