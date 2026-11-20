@@ -15,17 +15,18 @@ from sqlalchemy import create_engine, text
 
 from dristhi import config, db
 from dristhi.errors import register_error_handlers
-from dristhi.routers import attendees
+from dristhi.routers import attendees, venue
 
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
-TABLES = ("attendees", "events", "organizations")
+TABLES = ("pois", "zones", "attendees", "events", "organizations")
 
 
 def make_app() -> FastAPI:
-    """Just the join routes, so tests don't load the crowd model or start camera threads."""
+    """Just the database routes, so tests don't load the crowd model or start camera threads."""
     app = FastAPI()
     register_error_handlers(app)
     app.include_router(attendees.router)
+    app.include_router(venue.router)
     return app
 
 

@@ -29,6 +29,7 @@ do in a cloud console.
 | 05 | [Multi-event: events, cameras, guards](05-multi-event.md) | 04 | Full stack |
 | 06 | [Venue map editor](06-venue-map.md) | 05 | Frontend + backend |
 | 07a | [Anonymous attendee join (demo)](07a-anonymous-attendee-join.md) | – (needs a database) | Backend, then frontend |
+| 06a | [Venue map and nearest facility (demo)](06a-venue-map-demo.md) | 07a part A | Full stack |
 | 07 | [Attendee passes and QR login](07-passes-qr.md) | 05, 07a | Full stack |
 | 08 | [Chatbot and AI on the backend](08-chatbot.md) | 04, 06 | Full stack |
 | 09 | [Navigation, offline mode and SOS](09-offline-sos.md) | 06, 08 | Frontend |
@@ -42,6 +43,7 @@ do in a cloud console.
                              ├→ 07
                              └→ 10
           07a can start now (demo attendee flow); 03 and 07 build on its tables
+          06a (demo venue map) builds on 07a; 06 later adds drawing the venue in the wizard
           11 runs alongside from 04, one screen per PR
           12 last
 ```
