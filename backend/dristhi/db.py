@@ -1,5 +1,6 @@
 """Database engine and sessions. The engine is created lazily, so the backend still starts
 (and serves cameras) when DATABASE_URL is not set."""
+import os
 from collections.abc import Iterator
 
 from sqlalchemy import Engine, create_engine
@@ -25,7 +26,15 @@ def init_engine(url: str | None = None) -> Engine | None:
         return None
     if _engine is not None:
         _engine.dispose()
-    _engine = create_engine(url, pool_pre_ping=True, pool_size=5, max_overflow=20)
+    # Cloud SQL allows ~25 connections in all (Cloud Run + local dev + tests), so keep each
+    # backend's pool small: requests that wait for a connection beat a refused database.
+    _engine = create_engine(
+        url,
+        pool_pre_ping=True,
+        pool_size=int(os.environ.get("DB_POOL_SIZE", "5")),
+        max_overflow=int(os.environ.get("DB_MAX_OVERFLOW", "5")),
+        pool_timeout=10,
+    )
     SessionLocal = sessionmaker(bind=_engine, expire_on_commit=False)
     return _engine
 
