@@ -15,8 +15,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 from seed_demo import seed  # noqa: E402
 
 
-def join(client, slug="demo", device_id=None):
-    return client.post(f"/api/events/{slug}/join", json={"device_id": str(device_id or uuid.uuid4())})
+def join(client, slug="demo", device_id=None, **details):
+    body = {"device_id": str(device_id or uuid.uuid4()), **details}
+    return client.post(f"/api/events/{slug}/join", json=body)
 
 
 def test_numbers_go_up_per_device(client, session):
@@ -92,3 +93,48 @@ def test_without_database_join_returns_503(monkeypatch):
     res = join(TestClient(make_app()))
     assert res.status_code == 503
     assert res.json()["error"] == "database_not_configured"
+
+
+def test_join_with_name_and_phone(client, session):
+    seed(session)
+    device = uuid.uuid4()
+    res = join(client, device_id=device, name="  Rahul   Sen ", phone="098765 43210")
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["display_name"] == "Rahul Sen" and body["name"] == "Rahul Sen"
+    assert body["phone"] == "+919876543210"
+
+    # Only the same device gets the name and number back.
+    own = client.get(f"/api/attendees/{body['attendee_id']}", headers={"X-Device-Id": str(device)}).json()
+    assert own["phone"] == "+919876543210"
+    other = client.get(f"/api/attendees/{body['attendee_id']}").json()
+    assert other["phone"] is None and other["name"] is None and other["display_name"] == "Attendee 1"
+
+
+def test_rejoin_and_update_details(client, session):
+    seed(session)
+    device = uuid.uuid4()
+    first = join(client, device_id=device).json()
+    assert first["display_name"] == "Attendee 1" and first["phone"] is None
+    again = join(client, device_id=device, name="Asha", phone="+44 7700 900123").json()
+    assert again["attendee_id"] == first["attendee_id"] and again["number"] == 1
+    assert again["phone"] == "+447700900123"
+
+    url = f"/api/attendees/{first['attendee_id']}"
+    assert client.patch(url, json={"phone": "9876543210"}).status_code == 422  # no device header
+    assert client.patch(url, headers={"X-Device-Id": str(uuid.uuid4())}, json={"name": "X Y"}).status_code == 404
+    updated = client.patch(url, headers={"X-Device-Id": str(device)}, json={"phone": "+91 91234 56789"}).json()
+    assert updated["phone"] == "+919123456789" and updated["name"] == "Asha"
+
+
+def test_bad_name_or_phone_is_rejected(client, session):
+    seed(session)
+    for details, code in (
+        ({"name": "A", "phone": "9876543210"}, "invalid_name"),
+        ({"name": "Asha", "phone": "12345"}, "invalid_phone"),
+        ({"name": "Asha", "phone": "5876543210"}, "invalid_phone"),
+    ):
+        res = join(client, **details)
+        assert res.status_code == 422 and res.json()["error"] == code
+    session.expire_all()
+    assert session.query(Event).one().attendee_count == 0

@@ -68,7 +68,8 @@ class Attendee(Base):
 
     @property
     def display_name(self) -> str:
-        return f"Attendee {self.number}"
+        """The attendee's name, or "Attendee 12" if they joined without giving one."""
+        return self.name or f"Attendee {self.number}"
 
 
 class Zone(Base):

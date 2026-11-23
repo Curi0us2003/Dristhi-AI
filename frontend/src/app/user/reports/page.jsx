@@ -1,11 +1,20 @@
 'use client';
 
 import Link from 'next/link';
-import { Bell, X } from 'lucide-react';
+import { Bell, Phone, X } from 'lucide-react';
 import { secondaryButton } from '@/components/attendee/location-prompts';
 import { useAttendee } from '@/contexts/attendee-context';
 import { markNotificationRead, useAttendeeNotifications, useMyReports } from '@/hooks/use-attendee-data';
-import { cn } from '@/lib/utils';
+import { cn, formatPhone } from '@/lib/utils';
+
+const STAFF_ROLE = {
+  guard: 'Security',
+  supervisor: 'Supervisor',
+  medic: 'Medical staff',
+  doctor: 'Doctor',
+  ambulance: 'Ambulance',
+  volunteer: 'Volunteer',
+};
 /** My reports (docs/design/mockups/AttendeeHome.dc.html, frame 3) plus unread updates. */
 export default function MyReportsPage() {
   const { attendee } = useAttendee();
@@ -96,6 +105,24 @@ function ReportCard({ report: r }) {
         </span>
       </div>
       {summary && <p className="text-sm leading-relaxed text-ds-ink-2">{summary}</p>}
+      {r.assignedStaffName && !resolved && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-[10px] bg-ds-accent-tint px-3 py-2.5">
+          <p className="text-[13px] leading-relaxed text-ds-accent-ink">
+            <span className="font-semibold">{r.assignedStaffName}</span>
+            {r.assignedStaffKind ? ` (${STAFF_ROLE[r.assignedStaffKind] ?? r.assignedStaffKind})` : ''} is on the way
+          </p>
+          {r.assignedStaffPhone && (
+            <a
+              href={`tel:${r.assignedStaffPhone}`}
+              aria-label={`Call ${r.assignedStaffName}, ${formatPhone(r.assignedStaffPhone)}`}
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-[10px] bg-ds-accent px-3 text-sm font-semibold text-ds-on-accent hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ds-accent"
+            >
+              <Phone className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+              Call {formatPhone(r.assignedStaffPhone)}
+            </a>
+          )}
+        </div>
+      )}
       {r.actionTaken && (
         <p className="rounded-[10px] bg-ds-predicted-tint px-3 py-2.5 text-[13px] leading-relaxed text-ds-predicted">
           {r.actionTaken}

@@ -104,7 +104,7 @@ def test_attendee_report_assign_resolve_and_notify(api, admin, session, org):
     session.add(event)
     session.flush()
     device = uuid.uuid4()
-    attendee = Attendee(event_id=event.id, number=1, device_id=device)
+    attendee = Attendee(event_id=event.id, number=1, device_id=device, name="Rahul", phone="+919876543210")
     session.add(attendee)
     session.commit()
     headers = {"X-Device-Id": str(device)}
@@ -117,7 +117,9 @@ def test_attendee_report_assign_resolve_and_notify(api, admin, session, org):
     )
     assert r.status_code == 201
     report = r.json()
-    assert report["submitted_by"] == "Attendee 1" and report["coords"]["accuracy_m"] == 15
+    assert report["submitted_by"] == "Rahul" and report["coords"]["accuracy_m"] == 15
+    listed = api.get(f"/api/events/{event.id}/grievances").json()[0]
+    assert listed["attendee_name"] == "Rahul" and listed["attendee_phone"] == "+919876543210"
 
     # Wrong device: not found. Missing-person alert is public for the event.
     assert api.get(f"/api/attendees/{attendee.id}/reports", headers={"X-Device-Id": str(uuid.uuid4())}).status_code == 404
@@ -128,11 +130,18 @@ def test_attendee_report_assign_resolve_and_notify(api, admin, session, org):
     assert api.post(f"/api/attendees/{attendee.id}/notifications/{notes[0]['id']}/read", headers=headers).status_code == 204
     assert api.get(f"/api/attendees/{attendee.id}/notifications", headers=headers).json() == []
 
-    medic = api.post(f"/api/events/{event.id}/staff", json=[{"name": "Dr Rao", "kind": "doctor"}]).json()[0]
+    medic = api.post(
+        f"/api/events/{event.id}/staff", json=[{"name": "Dr Rao", "kind": "doctor", "phone": "+919000000001"}]
+    ).json()[0]
     g = api.post(
         f"/api/events/{event.id}/grievances/{report['id']}/assign", json={"staff_id": medic["id"], "reason": "Search"}
     ).json()
-    assert g["assigned_staff_name"] == "Dr Rao"
+    assert g["assigned_staff_name"] == "Dr Rao" and g["assigned_staff_phone"] == "+919000000001"
+    # The attendee is told who is coming and how to call them, and sees it on their report.
+    note = api.get(f"/api/attendees/{attendee.id}/notifications", headers=headers).json()[0]["message"]
+    assert note == "Dr Rao (Doctor) is on the way to help you. Call +919000000001."
+    mine = api.get(f"/api/attendees/{attendee.id}/reports", headers=headers).json()[0]
+    assert mine["assigned_staff_phone"] == "+919000000001"
     assert api.get(f"/api/events/{event.id}/dispatches").json()[0]["grievance_id"] == report["id"]
 
     done = api.post(f"/api/events/{event.id}/grievances/{report['id']}/resolve", json={"action_taken": "Found"}).json()
