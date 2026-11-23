@@ -148,6 +148,7 @@ class Staff(Base):
     __table_args__ = (
         CheckConstraint(_in("kind", STAFF_KINDS), name="ck_staff_kind"),
         CheckConstraint(_in("status", STAFF_STATUSES), name="ck_staff_status"),
+        UniqueConstraint("event_id", "login_code", name="uq_staff_event_login_code"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
@@ -158,6 +159,10 @@ class Staff(Base):
     kind: Mapped[str] = mapped_column(String(16))
     status: Mapped[str] = mapped_column(String(16), default="available", server_default="available")
     location = mapped_column(Geometry("POINT", srid=4326, spatial_index=False))
+    # Staff app sign-in (dristhi/staff_auth.py): the code the admin hands out, and the SHA-256
+    # of the current session token.
+    login_code: Mapped[str | None] = mapped_column(String(16))
+    session_hash: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

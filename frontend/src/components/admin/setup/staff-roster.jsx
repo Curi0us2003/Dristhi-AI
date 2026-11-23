@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { FileUp, Plus, Trash2 } from 'lucide-react';
+import { Copy, FileUp, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { ATTENDEE_URL } from '@/lib/app-urls';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -14,6 +15,7 @@ import {
   createStaff,
   createStaffMany,
   deleteStaff,
+  resetStaffCode,
   STAFF_KIND_LABEL,
   STAFF_KINDS,
   STAFF_STATUS_LABEL,
@@ -65,6 +67,8 @@ export default function StaffRoster({ event }) {
   const [csvErrors, setCsvErrors] = useState([]);
   const [filter, setFilter] = useState('');
 
+  const [origin, setOrigin] = useState('');
+  useEffect(() => setOrigin(window.location.origin), []);
   useEffect(() => watchStaff(event.id, setStaff), [event.id]);
   useEffect(() => watchZones(event.id, setZones), [event.id]);
 
@@ -139,6 +143,24 @@ export default function StaffRoster({ event }) {
       await updateStaff(s.id, change);
     } catch (err) {
       toast({ title: 'Could not update', description: err.message, variant: 'destructive' });
+    }
+  }
+
+  async function onResetCode(s) {
+    if (!window.confirm(`Give ${s.name} a new staff app code? Their old code stops working and they are signed out.`)) return;
+    await resetStaffCode(s.id, event.id).catch((err) =>
+      toast({ title: 'Could not reset the code', description: err.message, variant: 'destructive' }),
+    );
+  }
+
+  const staffAppUrl = `${ATTENDEE_URL || origin}/staff?e=${encodeURIComponent(event.slug)}`;
+
+  async function copyStaffLink() {
+    try {
+      await navigator.clipboard.writeText(staffAppUrl);
+      toast({ title: 'Staff app link copied' });
+    } catch {
+      toast({ title: 'Could not copy', description: staffAppUrl, variant: 'destructive' });
     }
   }
 
@@ -275,6 +297,16 @@ export default function StaffRoster({ event }) {
                 .map((k) => `${counts[k]} ${STAFF_KIND_LABEL[k].toLowerCase()}`)
                 .join(' · ') || 'No staff yet.'}
             </CardDescription>
+            <p className="flex flex-wrap items-center gap-1.5 text-[13px] text-muted-foreground">
+              Staff app: staff open
+              <a href={staffAppUrl} target="_blank" rel="noreferrer" className="font-medium text-foreground underline">
+                {staffAppUrl.replace(/^https?:\/\//, '')}
+              </a>
+              and sign in with their name and app code.
+              <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Copy staff app link" onClick={copyStaffLink}>
+                <Copy className="h-3.5 w-3.5" />
+              </Button>
+            </p>
           </div>
           <Input
             aria-label="Search staff"
@@ -295,6 +327,7 @@ export default function StaffRoster({ event }) {
                   <TableHead>Role</TableHead>
                   <TableHead>Zone</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>App code</TableHead>
                   <TableHead className="w-12" />
                 </TableRow>
               </TableHeader>
@@ -337,6 +370,21 @@ export default function StaffRoster({ event }) {
                           ))}
                         </SelectContent>
                       </Select>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <code className="rounded bg-muted px-1.5 py-0.5 text-sm tracking-wider">{s.loginCode ?? '—'}</code>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          aria-label={`New app code for ${s.name}`}
+                          title="New code"
+                          onClick={() => onResetCode(s)}
+                        >
+                          <RefreshCw className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Button

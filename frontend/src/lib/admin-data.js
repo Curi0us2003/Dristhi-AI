@@ -154,7 +154,7 @@ function fromZone(input) {
 
 const toStaff = (s) => ({
   id: s.id, eventId: s.event_id, name: s.name, phone: s.phone ?? '', kind: s.kind, status: s.status,
-  zoneId: s.zone_id, lat: s.lat, lng: s.lng,
+  zoneId: s.zone_id, lat: s.lat, lng: s.lng, loginCode: s.login_code ?? null,
 });
 
 function fromStaff(input) {
@@ -242,6 +242,11 @@ export async function createStaffMany(inputs) {
 
 export function updateStaff(id, input, eventId = input.eventId) {
   return api(`${ev(eventId ?? currentEventId)}/staff/${id}`, { method: 'PATCH', body: fromStaff(input) });
+}
+
+/** Gives a staff member a new staff app code; they are signed out of the staff app. */
+export function resetStaffCode(id, eventId) {
+  return api(`${ev(eventId ?? currentEventId)}/staff/${id}/login-code`, { method: 'POST' });
 }
 
 export function deleteStaff(id, eventId) {

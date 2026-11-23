@@ -22,6 +22,7 @@ from dristhi.auth import admin_event, current_admin
 from dristhi.db import get_db
 from dristhi.errors import ApiError
 from dristhi.routers.venue import venue_feature_collection
+from dristhi.staff_auth import new_code
 from dristhi.models import (
     EVENT_STATUSES,
     STAFF_KINDS,
@@ -337,6 +338,7 @@ class StaffOut(BaseModel):
     zone_id: uuid.UUID | None
     lat: float | None
     lng: float | None
+    login_code: str | None = None  # staff app sign-in, with the staff member's name
     updated_at: datetime
 
 
@@ -344,7 +346,7 @@ def _staff_out(db: Session, s: Staff) -> StaffOut:
     lat, lng = _lat_lng(db, s.location)
     return StaffOut(
         id=s.id, event_id=s.event_id, name=s.name, phone=s.phone, kind=s.kind, status=s.status,
-        zone_id=s.zone_id, lat=lat, lng=lng, updated_at=s.updated_at,
+        zone_id=s.zone_id, lat=lat, lng=lng, login_code=s.login_code, updated_at=s.updated_at,
     )
 
 
@@ -376,8 +378,11 @@ def create_staff(
     rows = []
     for item in body:
         _check_zone(db, event, item.zone_id)
-        rows.append(Staff(event_id=event.id, **item.model_dump()))
-    db.add_all(rows)
+        staff = Staff(event_id=event.id, **item.model_dump())
+        staff.login_code = new_code(db, event.id)
+        db.add(staff)
+        db.flush()  # so the next new_code() sees this code
+        rows.append(staff)
     db.commit()
     return [_staff_out(db, s) for s in rows]
 
@@ -395,6 +400,18 @@ def update_staff(
         if value is None and key not in ("zone_id", "phone"):
             continue
         setattr(staff, key, value)
+    db.commit()
+    db.refresh(staff)
+    return _staff_out(db, staff)
+
+
+@router.post("/events/{event_id}/staff/{staff_id}/login-code", response_model=StaffOut)
+def reset_login_code(
+    staff_id: uuid.UUID, event: Event = Depends(admin_event), db: Session = Depends(get_db)
+) -> StaffOut:
+    """Gives the staff member a new staff app code and signs them out everywhere."""
+    staff = _staff(db, event, staff_id)
+    staff.login_code, staff.session_hash = new_code(db, event.id), None
     db.commit()
     db.refresh(staff)
     return _staff_out(db, staff)
