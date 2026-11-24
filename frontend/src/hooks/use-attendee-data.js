@@ -32,6 +32,11 @@ export function markNotificationRead(attendeeId, id) {
   return attendeeApi(`${base(attendeeId)}/notifications/${id}/read`, { method: 'POST' });
 }
 
+/** The attendee confirms they got help: closes their own report and frees the staff sent. */
+export function resolveMyReport(attendeeId, reportId) {
+  return attendeeApi(`${base(attendeeId)}/reports/${reportId}/resolve`, { method: 'POST' });
+}
+
 /** Reports this attendee sent, newest first. */
 export function useMyReports(attendeeId) {
   const [state, setState] = useState({ reports: [], loading: true });

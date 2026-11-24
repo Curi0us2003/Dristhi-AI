@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from dristhi.db import get_db
 from dristhi.errors import ApiError
-from dristhi.models import Attendee, Event, Grievance, Notification
+from dristhi.models import Attendee, Event, Grievance, Notification, Staff
 from dristhi.routers.admin import Coords, GrievanceOut, grievance_out, point
 
 router = APIRouter(prefix="/api", tags=["reports"])
@@ -76,6 +76,39 @@ def my_reports(attendee: Attendee = Depends(device_attendee), db: Session = Depe
         select(Grievance).where(Grievance.attendee_id == attendee.id).order_by(Grievance.submitted_at.desc())
     )
     return [grievance_out(db, g) for g in rows]
+
+
+# What the control room sees in "Action taken" when the attendee closes their own report.
+ATTENDEE_CLOSED = {
+    "Missing Person": "Closed by the attendee: person found",
+}
+
+
+@router.post("/attendees/{attendee_id}/reports/{report_id}/resolve", response_model=GrievanceOut)
+def resolve_my_report(
+    report_id: uuid.UUID, attendee: Attendee = Depends(device_attendee), db: Session = Depends(get_db)
+) -> GrievanceOut:
+    """The attendee confirms they got help, which the control room cannot see for itself.
+
+    Same effect as the admin's Mark resolved: the report closes, the staff member sent to it
+    is free again and drops the assignment from the staff app, and a missing-person alert
+    leaves every attendee's Home.
+    """
+    g = db.get(Grievance, report_id)
+    if g is None or g.attendee_id != attendee.id:
+        raise ApiError(404, "report_not_found", "No such report of yours.")
+    if g.status != "resolved":
+        staff = db.get(Staff, g.assigned_staff_id) if g.assigned_staff_id else None
+        if staff is not None and staff.status in ("dispatched", "on_scene"):
+            staff.status = "available"
+        g.status, g.resolved_at = "resolved", func.now()
+        g.action_taken = ATTENDEE_CLOSED.get(g.type) or (
+            f"Closed by the attendee: help received from {g.assigned_staff_name}"
+            if g.assigned_staff_name else "Closed by the attendee"
+        )
+        db.commit()
+        db.refresh(g)
+    return grievance_out(db, g)
 
 
 class NotificationOut(BaseModel):

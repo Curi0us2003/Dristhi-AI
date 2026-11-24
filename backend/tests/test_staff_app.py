@@ -113,6 +113,33 @@ def test_medic_sees_attendee_and_zone_until_resolved(setup, session):
     assert client.get("/api/staff/me", headers={"X-Staff-Token": token}).json()["assignment"] is None
 
 
+def test_attendee_closes_own_report_and_frees_the_medic(setup, session):
+    client, event, _, _ = setup
+    device = uuid.uuid4()
+    attendee = Attendee(event_id=event.id, number=1, device_id=device, name="Asha")
+    session.add(attendee)
+    session.commit()
+    mine = {"X-Device-Id": str(device)}
+    report = client.post(f"/api/attendees/{attendee.id}/reports", headers=mine,
+                         json={"type": "Medical Attention", "details": "Fainted"}).json()
+    medic = add_staff(client, event, name="Dr Rao", kind="doctor")
+    token = login(client, "Dr Rao", medic["login_code"]).json()["token"]
+    client.post(f"/api/events/{event.id}/grievances/{report['id']}/assign",
+                json={"staff_id": medic["id"], "reason": "Medical"})
+
+    url = f"/api/attendees/{attendee.id}/reports/{report['id']}/resolve"
+    assert client.post(url, headers={"X-Device-Id": str(uuid.uuid4())}).status_code == 404
+    done = client.post(url, headers=mine)
+    assert done.status_code == 200, done.text
+    assert done.json()["status"] == "resolved"
+    assert done.json()["action_taken"] == "Closed by the attendee: help received from Dr Rao"
+    assert client.post(url, headers=mine).json()["resolved_at"] == done.json()["resolved_at"]
+
+    assert client.get("/api/staff/me", headers={"X-Staff-Token": token}).json()["assignment"] is None
+    staff = client.get(f"/api/events/{event.id}/staff").json()
+    assert next(s for s in staff if s["id"] == medic["id"])["status"] == "available"
+
+
 def test_reset_code_and_new_login_end_old_sessions(setup):
     client, event, _, _ = setup
     guard = add_staff(client, event, name="Ravi", kind="guard")

@@ -1,10 +1,16 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
-import { Bell, Phone, X } from 'lucide-react';
-import { secondaryButton } from '@/components/attendee/location-prompts';
+import { Bell, CheckCircle2, Phone, X } from 'lucide-react';
+import { primaryButton, secondaryButton } from '@/components/attendee/location-prompts';
 import { useAttendee } from '@/contexts/attendee-context';
-import { markNotificationRead, useAttendeeNotifications, useMyReports } from '@/hooks/use-attendee-data';
+import {
+  markNotificationRead,
+  resolveMyReport,
+  useAttendeeNotifications,
+  useMyReports,
+} from '@/hooks/use-attendee-data';
 import { cn, formatPhone } from '@/lib/utils';
 
 const STAFF_ROLE = {
@@ -62,7 +68,7 @@ export default function MyReportsPage() {
 
       <div className="grid gap-3 lg:grid-cols-2">
         {reports.map((r) => (
-          <ReportCard key={r.id} report={r} />
+          <ReportCard key={r.id} report={r} attendeeId={attendee?.attendee_id} />
         ))}
       </div>
 
@@ -84,8 +90,30 @@ const TITLES = {
   'General Grievance': 'Report',
 };
 
-function ReportCard({ report: r }) {
+/** What the attendee confirms when closing, per report type. */
+const CLOSE = {
+  'Missing Person': { button: 'Person found: close report', ask: 'Close this report? Staff will stop searching.' },
+  'Medical Attention': { button: 'I got help: close report', ask: 'Did you get the help you needed?' },
+};
+const CLOSE_DEFAULT = { button: 'Sorted: close report', ask: 'Is this sorted? The control room will close it.' };
+
+function ReportCard({ report: r, attendeeId }) {
   const resolved = r.status === 'resolved';
+  // idle → confirming → sending; error shows a retry message.
+  const [step, setStep] = useState('idle');
+  const close = CLOSE[r.type] ?? CLOSE_DEFAULT;
+
+  const confirmClose = async () => {
+    setStep('sending');
+    try {
+      await resolveMyReport(attendeeId, r.id);
+      setStep('idle');
+    } catch (err) {
+      console.error('resolve report', err);
+      setStep('error');
+    }
+  };
+
   const when = r.submittedAt?.seconds
     ? new Date(r.submittedAt.seconds * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
     : 'just now';
@@ -127,6 +155,30 @@ function ReportCard({ report: r }) {
         <p className="rounded-[10px] bg-ds-predicted-tint px-3 py-2.5 text-[13px] leading-relaxed text-ds-predicted">
           {r.actionTaken}
         </p>
+      )}
+      {!resolved && attendeeId && step === 'idle' && (
+        <button type="button" className={secondaryButton} onClick={() => setStep('confirming')}>
+          <CheckCircle2 className="mr-2 h-4 w-4" strokeWidth={1.75} aria-hidden />
+          {close.button}
+        </button>
+      )}
+      {!resolved && (step === 'confirming' || step === 'sending' || step === 'error') && (
+        <div role="group" aria-label="Close this report" className="flex flex-col gap-2 rounded-[10px] border border-ds-border p-3">
+          <p className="text-sm text-ds-ink-2">{close.ask}</p>
+          {step === 'error' && (
+            <p role="alert" className="text-sm font-semibold text-ds-critical">
+              Could not close it. Check your connection and try again.
+            </p>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" className={secondaryButton} disabled={step === 'sending'} onClick={() => setStep('idle')}>
+              Not yet
+            </button>
+            <button type="button" className={primaryButton} disabled={step === 'sending'} onClick={() => void confirmClose()}>
+              {step === 'sending' ? 'Closing…' : 'Yes, close it'}
+            </button>
+          </div>
+        </div>
       )}
       <span className="text-xs text-ds-muted">Sent {when}</span>
     </article>
