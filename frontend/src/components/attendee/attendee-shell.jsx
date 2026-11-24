@@ -133,8 +133,8 @@ export default function AttendeeShell({ children }) {
               {event?.name ?? 'Event'}
             </span>
             <span className="truncate text-xs text-ds-muted sm:text-[13px]">
-              <span className="lg:hidden">You are {attendee?.display_name}</span>
-              <span className="hidden lg:inline">{place || `You are ${attendee?.display_name}`}</span>
+              <span className="lg:hidden">Hi, {attendee?.display_name}</span>
+              <span className="hidden lg:inline">{place || `Hi, ${attendee?.display_name}`}</span>
             </span>
           </div>
           <BellButton count={notifications.length} />

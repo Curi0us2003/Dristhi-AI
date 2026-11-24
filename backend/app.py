@@ -33,6 +33,7 @@ from dristhi.routers import attendees as attendees_router
 from dristhi.routers import venue as venue_router
 from dristhi.routers import admin as admin_router
 from dristhi.routers import reports as reports_router
+from dristhi.routers import staff_app as staff_app_router
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -496,6 +497,7 @@ app.include_router(attendees_router.router)
 app.include_router(venue_router.router)
 app.include_router(admin_router.router)
 app.include_router(reports_router.router)
+app.include_router(staff_app_router.router)
 
 
 # ─────────────────────────────────────────────────────────────

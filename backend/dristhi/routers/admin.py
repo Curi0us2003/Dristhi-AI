@@ -22,6 +22,7 @@ from dristhi.auth import admin_event, current_admin
 from dristhi.db import get_db
 from dristhi.errors import ApiError
 from dristhi.routers.venue import venue_feature_collection
+from dristhi.staff_auth import new_code
 from dristhi.models import (
     EVENT_STATUSES,
     STAFF_KINDS,
@@ -41,6 +42,8 @@ router = APIRouter(prefix="/api", tags=["admin"])
 EventStatus = Literal[EVENT_STATUSES]  # type: ignore[valid-type]
 StaffKind = Literal[STAFF_KINDS]  # type: ignore[valid-type]
 StaffStatus = Literal[STAFF_STATUSES]  # type: ignore[valid-type]
+STAFF_LABELS = {"guard": "Security", "supervisor": "Supervisor", "medic": "Medical", "doctor": "Doctor",
+                "ambulance": "Ambulance", "volunteer": "Volunteer"}
 
 
 def point(lat: float, lng: float):
@@ -335,6 +338,7 @@ class StaffOut(BaseModel):
     zone_id: uuid.UUID | None
     lat: float | None
     lng: float | None
+    login_code: str | None = None  # staff app sign-in, with the staff member's name
     updated_at: datetime
 
 
@@ -342,7 +346,7 @@ def _staff_out(db: Session, s: Staff) -> StaffOut:
     lat, lng = _lat_lng(db, s.location)
     return StaffOut(
         id=s.id, event_id=s.event_id, name=s.name, phone=s.phone, kind=s.kind, status=s.status,
-        zone_id=s.zone_id, lat=lat, lng=lng, updated_at=s.updated_at,
+        zone_id=s.zone_id, lat=lat, lng=lng, login_code=s.login_code, updated_at=s.updated_at,
     )
 
 
@@ -374,8 +378,11 @@ def create_staff(
     rows = []
     for item in body:
         _check_zone(db, event, item.zone_id)
-        rows.append(Staff(event_id=event.id, **item.model_dump()))
-    db.add_all(rows)
+        staff = Staff(event_id=event.id, **item.model_dump())
+        staff.login_code = new_code(db, event.id)
+        db.add(staff)
+        db.flush()  # so the next new_code() sees this code
+        rows.append(staff)
     db.commit()
     return [_staff_out(db, s) for s in rows]
 
@@ -393,6 +400,18 @@ def update_staff(
         if value is None and key not in ("zone_id", "phone"):
             continue
         setattr(staff, key, value)
+    db.commit()
+    db.refresh(staff)
+    return _staff_out(db, staff)
+
+
+@router.post("/events/{event_id}/staff/{staff_id}/login-code", response_model=StaffOut)
+def reset_login_code(
+    staff_id: uuid.UUID, event: Event = Depends(admin_event), db: Session = Depends(get_db)
+) -> StaffOut:
+    """Gives the staff member a new staff app code and signs them out everywhere."""
+    staff = _staff(db, event, staff_id)
+    staff.login_code, staff.session_hash = new_code(db, event.id), None
     db.commit()
     db.refresh(staff)
     return _staff_out(db, staff)
@@ -485,6 +504,10 @@ class GrievanceOut(BaseModel):
     type: str
     details: str
     submitted_by: str | None
+    # Read from the attendee and staff records, so an admin (or the attendee, for their own
+    # report) always sees the current number.
+    attendee_name: str | None = None
+    attendee_phone: str | None = None
     email: str | None
     urgency: str | None
     location_text: str | None
@@ -496,6 +519,7 @@ class GrievanceOut(BaseModel):
     assigned_staff_id: uuid.UUID | None
     assigned_staff_name: str | None
     assigned_staff_kind: str | None
+    assigned_staff_phone: str | None = None
     assigned_at: datetime | None
     action_taken: str | None
     resolved_at: datetime | None
@@ -504,9 +528,13 @@ class GrievanceOut(BaseModel):
 
 def grievance_out(db: Session, g: Grievance) -> GrievanceOut:
     lat, lng = _lat_lng(db, g.location)
+    attendee = db.get(Attendee, g.attendee_id) if g.attendee_id else None
+    staff = db.get(Staff, g.assigned_staff_id) if g.assigned_staff_id else None
     return GrievanceOut(
         id=g.id, event_id=g.event_id, attendee_id=g.attendee_id, type=g.type, details=g.details,
-        submitted_by=g.submitted_by, email=g.email, urgency=g.urgency, location_text=g.location_text,
+        submitted_by=g.submitted_by, attendee_name=attendee.name if attendee else None,
+        attendee_phone=attendee.phone if attendee else None, assigned_staff_phone=staff.phone if staff else None,
+        email=g.email, urgency=g.urgency, location_text=g.location_text,
         person_name=g.person_name, last_seen=g.last_seen, photo_data_uri=g.photo_data_uri,
         coords=Coords(lat=lat, lng=lng, accuracy_m=g.accuracy_m) if lat is not None else None,
         status=g.status, assigned_staff_id=g.assigned_staff_id, assigned_staff_name=g.assigned_staff_name,
@@ -584,6 +612,12 @@ def assign_grievance(
         from_zone_id=from_zone.id if from_zone else None, from_zone_name=from_zone.name if from_zone else None,
         grievance_id=g.id, reason=body.reason, created_by=admin.id,
     ))
+    if g.attendee_id:
+        call = f" Call {staff.phone}." if staff.phone else ""
+        db.add(Notification(
+            event_id=event.id, attendee_id=g.attendee_id,
+            message=f"{staff.name} ({STAFF_LABELS.get(staff.kind, staff.kind)}) is on the way to help you.{call}",
+        ))
     db.commit()
     db.refresh(g)
     return grievance_out(db, g)

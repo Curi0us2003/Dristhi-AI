@@ -43,7 +43,11 @@ export function AttendeeProvider({ children }) {
     };
   }, []);
 
-  return <AttendeeContext.Provider value={value}>{children}</AttendeeContext.Provider>;
+  // setAttendee replaces the attendee after they change their name or number.
+  const setAttendee = useCallback((a) => setValue({ attendee: a, status: 'ready' }), []);
+  const ctx = useMemo(() => ({ ...value, setAttendee }), [value, setAttendee]);
+
+  return <AttendeeContext.Provider value={ctx}>{children}</AttendeeContext.Provider>;
 }
 
 /* ── Location ─────────────────────────────────────────────────────────── */

@@ -24,8 +24,10 @@ import {
   MapPin,
   UserCheck,
   CheckCircle2,
+  Phone,
 } from 'lucide-react';
 import Image from 'next/image';
+import { formatPhone } from '@/lib/utils';
 import { useEvent } from '@/contexts/event-context';
 import { StatusBadge } from '@/components/admin/status-badge';
 import {
@@ -323,6 +325,16 @@ export default function GrievancesPage() {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
+
+                {grievance.attendeePhone && (
+                  <a
+                    href={`tel:${grievance.attendeePhone}`}
+                    className="inline-flex min-h-10 items-center gap-2 self-start rounded-[10px] border border-ds-border px-3 text-sm font-semibold hover:bg-ds-divider focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ds-accent"
+                  >
+                    <Phone className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                    Call {grievance.attendeeName || 'reporter'} · {formatPhone(grievance.attendeePhone)}
+                  </a>
+                )}
 
                 <div className="flex flex-wrap gap-2">
                   <SlaBadge grievance={grievance} now={now} />
