@@ -26,6 +26,7 @@ for _stream in (sys.stdout, sys.stderr):
 
 from crowd_counter import load_counter, render_density_overlay
 from forecast import forecast_feed
+from video_cache import localize_feeds, cache_dir as video_cache_dir
 from dristhi.config import cors_origins
 from dristhi.errors import register_error_handlers
 from dristhi.routers import attendees as attendees_router
@@ -375,7 +376,7 @@ class PreviewReader:
     """
 
     def __init__(self, feed_id, config):
-        self.feed_id, self.url = feed_id, config["url"]
+        self.feed_id, self.config = feed_id, config  # url read at each open: startup may swap in a cached copy
         self.jpeg = None          # latest frame, plain
         self.overlay_jpeg = None  # latest frame with the density heatmap and count
         self.updated = 0.0
@@ -391,7 +392,7 @@ class PreviewReader:
     def _run(self):
         proc = feed_processors[self.feed_id]
         while self.running:
-            cap = cv2.VideoCapture(self.url)
+            cap = cv2.VideoCapture(self.config["url"])
             if not cap.isOpened():
                 cap.release()
                 time.sleep(5)
@@ -446,6 +447,10 @@ async def lifespan(app: FastAPI):
     # ── Startup ──
     print("🚀 Starting Crowd Monitoring API...")
     print("📹 Initializing video feeds...")
+    # Before any reader opens a feed: copy web video files to local disk once (video_cache.py).
+    stats = localize_feeds(CCTV_FEEDS)
+    print(f"💾 Feed cache ({video_cache_dir()}): {stats['downloaded']} downloaded, "
+          f"{stats['cached']} already cached, {stats['failed']} read from the web")
     check_video_setup()
     print("🔄 Starting feed processors...")
     for processor in feed_processors.values():
