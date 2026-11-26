@@ -86,7 +86,7 @@ export default function EventQrCard({ event, variant = 'attendee' }) {
         )
       }
     >
-      <div className="flex flex-col items-start gap-5 sm:flex-row">
+      <div className={variant === 'staff' ? 'flex flex-col items-start gap-4' : 'flex flex-col items-start gap-5 sm:flex-row'}>
         <div className="flex h-44 w-44 shrink-0 items-center justify-center rounded-xl border border-ds-border bg-white p-2">
           {loading ? (
             <Loader2 className="h-6 w-6 animate-spin text-ds-muted" aria-label="Loading QR code" />

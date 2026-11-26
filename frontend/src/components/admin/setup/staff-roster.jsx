@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Copy, FileUp, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { ATTENDEE_URL } from '@/lib/app-urls';
+import EventQrCard from '@/components/admin/setup/event-qr-card';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -286,6 +287,8 @@ export default function StaffRoster({ event }) {
             )}
           </CardContent>
         </Card>
+
+        <EventQrCard event={event} variant="staff" />
       </div>
 
       <Card>
