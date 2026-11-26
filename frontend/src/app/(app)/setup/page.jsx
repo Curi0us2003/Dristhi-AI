@@ -103,6 +103,7 @@ export default function SetupPage() {
       {event && current === 'event' && <EventQrCard event={event} />}
       {event && current === 'zones' && <ZonesEditor event={event} />}
       {event && current === 'staff' && <StaffRoster event={event} />}
+      {event && current === 'staff' && <EventQrCard event={event} variant="staff" />}
     </>
   );
 }

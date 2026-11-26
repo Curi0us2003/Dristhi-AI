@@ -146,6 +146,11 @@ def join_url(slug: str) -> str:
     return f"{config.public_app_url()}/join?e={quote(slug)}"
 
 
+def staff_app_url(slug: str) -> str:
+    """Staff app link for the staff QR code; same attendee site, /staff page."""
+    return f"{config.public_app_url()}/staff?e={quote(slug)}"
+
+
 def _event_out(db: Session, event: Event) -> EventOut:
     lat, lng = _lat_lng(db, event.location)
     return EventOut(
@@ -250,6 +255,17 @@ def _zone(db: Session, event: Event, zone_id: uuid.UUID) -> Zone:
     return zone
 
 
+def _qr_png(url: str, size: int, filename: str) -> Response:
+    image = qrcode.make(url, box_size=size, border=2)
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return Response(
+        content=buffer.getvalue(),
+        media_type="image/png",
+        headers={"Cache-Control": "no-store", "Content-Disposition": f'inline; filename="{filename}"'},
+    )
+
+
 @router.get(
     "/events/{event_id}/qr.png",
     response_class=Response,
@@ -260,17 +276,20 @@ def event_qr(
     event: Event = Depends(admin_event),
 ) -> Response:
     """The one QR code attendees scan at the venue: opens /join?e=<slug> on the attendee site."""
-    image = qrcode.make(join_url(event.slug), box_size=size, border=2)
-    buffer = io.BytesIO()
-    image.save(buffer, format="PNG")
-    return Response(
-        content=buffer.getvalue(),
-        media_type="image/png",
-        headers={
-            "Cache-Control": "no-store",
-            "Content-Disposition": f'inline; filename="event-{event.slug}-qr.png"',
-        },
-    )
+    return _qr_png(join_url(event.slug), size, f"event-{event.slug}-qr.png")
+
+
+@router.get(
+    "/events/{event_id}/staff-qr.png",
+    response_class=Response,
+    responses={200: {"content": {"image/png": {}}, "description": "The staff app QR code"}},
+)
+def staff_qr(
+    size: int = Query(10, ge=2, le=40, description="pixels per QR module"),
+    event: Event = Depends(admin_event),
+) -> Response:
+    """QR code guards and medics scan to open the staff app (/staff?e=<slug>) for this event."""
+    return _qr_png(staff_app_url(event.slug), size, f"event-{event.slug}-staff-qr.png")
 
 
 @router.get("/events/{event_id}/zones", response_model=list[ZoneOut])

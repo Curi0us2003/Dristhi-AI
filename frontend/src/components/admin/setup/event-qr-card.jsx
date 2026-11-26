@@ -6,13 +6,37 @@ import { Button } from '@/components/ui/button';
 import { Panel } from '@/components/admin/ui';
 import { StatusBadge } from '@/components/admin/status-badge';
 import { useToast } from '@/hooks/use-toast';
-import { fetchEventQr } from '@/lib/admin-data';
+import { fetchEventQr, fetchStaffQr } from '@/lib/admin-data';
 
 /**
  * The one QR code attendees scan at the venue: opens /join?e=<slug> on the attendee site.
  * The image route needs the admin's token, so it is fetched as a Blob and shown via an object URL.
+ *
+ * With `variant="staff"` it shows the staff app QR instead (/staff?e=<slug>), for guards and
+ * medics to scan at their briefing.
  */
-export default function EventQrCard({ event }) {
+const VARIANTS = {
+  attendee: {
+    fetch: fetchEventQr,
+    url: (event) => event.joinUrl || `/join?e=${event.slug}`,
+    file: (event) => `event-${event.slug}-qr.png`,
+    title: 'Attendee QR code',
+    description:
+      'Print this at the gates and on posters. Scanning it opens the attendee app for this event. No sign-in needed.',
+  },
+  staff: {
+    fetch: fetchStaffQr,
+    url: (event) => event.joinUrl?.replace(/\/join\?/, '/staff?') || `/staff?e=${event.slug}`,
+    file: (event) => `event-${event.slug}-staff-qr.png`,
+    title: 'Staff app QR code',
+    description:
+      'Show this at the staff briefing. Guards and medics scan it, then sign in with their name and app code from the roster above.',
+  },
+};
+
+export default function EventQrCard({ event, variant = 'attendee' }) {
+  const v = VARIANTS[variant];
+  const link = v.url(event);
   const { toast } = useToast();
   const [imageUrl, setImageUrl] = useState(null);
   const [error, setError] = useState(null);
@@ -25,7 +49,7 @@ export default function EventQrCard({ event }) {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    fetchEventQr(event.id)
+    v.fetch(event.id)
       .then((blob) => {
         if (cancelled) return;
         objectUrl = URL.createObjectURL(blob);
@@ -38,24 +62,24 @@ export default function EventQrCard({ event }) {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
     // Reload when the event or its link changes.
-  }, [event.id, event.slug, attempt]);
+  }, [event.id, event.slug, attempt, v]);
 
   async function copyLink() {
     try {
-      await navigator.clipboard.writeText(event.joinUrl);
+      await navigator.clipboard.writeText(link);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast({ title: 'Copy failed', description: event.joinUrl, variant: 'destructive' });
+      toast({ title: 'Copy failed', description: link, variant: 'destructive' });
     }
   }
 
   return (
     <Panel
-      title="Attendee QR code"
-      description="Print this at the gates and on posters. Scanning it opens the attendee app for this event. No sign-in needed."
+      title={v.title}
+      description={v.description}
       action={
-        event.status === 'live' ? (
+        variant === 'staff' ? null : event.status === 'live' ? (
           <StatusBadge tone="normal">Joining open</StatusBadge>
         ) : (
           <StatusBadge tone="warning">Set status to Live to let attendees join</StatusBadge>
@@ -68,7 +92,7 @@ export default function EventQrCard({ event }) {
             <Loader2 className="h-6 w-6 animate-spin text-ds-muted" aria-label="Loading QR code" />
           ) : imageUrl && !error ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={imageUrl} alt={`QR code for ${event.joinUrl}`} className="h-full w-full object-contain" />
+            <img src={imageUrl} alt={`QR code for ${link}`} className="h-full w-full object-contain" />
           ) : (
             <div className="flex flex-col items-center gap-2 px-2 text-center text-xs text-ds-muted">
               <QrCode className="h-8 w-8" aria-hidden />
@@ -79,11 +103,11 @@ export default function EventQrCard({ event }) {
         <div className="min-w-0 space-y-3">
           <div>
             <p className="text-[13px] text-ds-muted">Link in the QR code</p>
-            <p className="break-all font-medium text-ds-ink">{event.joinUrl || `/join?e=${event.slug}`}</p>
+            <p className="break-all font-medium text-ds-ink">{link}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button asChild disabled={!imageUrl}>
-              <a href={imageUrl ?? undefined} download={`event-${event.slug}-qr.png`} aria-disabled={!imageUrl}>
+              <a href={imageUrl ?? undefined} download={v.file(event)} aria-disabled={!imageUrl}>
                 <Download className="mr-2 h-4 w-4" />
                 Download QR
               </a>

@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -9,17 +8,21 @@ import { LocationOffBanner } from '@/components/attendee/location-prompts';
 import { useLocation } from '@/contexts/attendee-context';
 import { useMissingPersonAlerts } from '@/hooks/use-attendee-data';
 import { cn } from '@/lib/utils';
-import { CROWD_WORD, fetchZones } from '@/lib/venue';
 
-/** Attendee Home (docs/design/mockups/AttendeeHome.dc.html, frames 2, 4 and 5). */
+/**
+ * Attendee Home (docs/design/mockups/AttendeeHome.dc.html, frames 2, 4 and 5).
+ * Crowd levels per area are deliberately not shown here: attendees seeing "Very crowded" next to
+ * "Quiet" could all head for the quiet area at once and start a rush. Crowd movement is directed
+ * by staff and organiser announcements instead.
+ */
 export default function AttendeeHomePage() {
   return (
     <>
       <LocationOffBanner className="mb-4 sm:mb-5 lg:mb-6" />
       <div
         className={cn(
-          'grid gap-4 [grid-template-areas:"help"_"near"_"crowd"_"side"]',
-          'sm:grid-cols-2 sm:gap-5 sm:[grid-template-areas:"help_help"_"near_near"_"crowd_side"]',
+          'grid gap-4 [grid-template-areas:"help"_"near"_"side"]',
+          'sm:gap-5',
           'lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start lg:gap-6 lg:[grid-template-areas:"left_right"]',
         )}
       >
@@ -30,7 +33,6 @@ export default function AttendeeHomePage() {
           <FindNearest />
         </div>
         <div className="contents lg:flex lg:flex-col lg:gap-6 lg:[grid-area:right]">
-          <CrowdCard />
           <div className="flex flex-col gap-4 [grid-area:side] sm:gap-5 lg:gap-6">
             <OrganiserUpdates />
             <MissingPersonAlerts />
@@ -118,95 +120,6 @@ function FindNearest() {
           </button>
         ))}
       </div>
-    </section>
-  );
-}
-
-const LEVEL_STYLE = {
-  critical: { pill: 'bg-ds-critical-tint text-ds-critical', dot: 'bg-ds-critical-bar' },
-  warning: { pill: 'bg-ds-warning-tint text-ds-warning', dot: 'bg-ds-warning-bar' },
-  normal: { pill: 'bg-ds-accent-tint text-ds-accent-ink', dot: 'bg-ds-accent' },
-};
-
-function minutesAgo(iso) {
-  if (!iso) return '';
-  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (Number.isNaN(m)) return '';
-  if (m < 1) return 'Updated just now';
-  return m === 1 ? 'Updated 1 min ago' : `Updated ${m} min ago`;
-}
-
-function CrowdCard() {
-  const [zones, setZones] = useState(null);
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = () =>
-      fetchZones()
-        .then((z) => {
-          if (cancelled) return;
-          setZones(z);
-          setFailed(false);
-        })
-        .catch(() => !cancelled && setFailed(true));
-    load();
-    const id = setInterval(load, 30000);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, []);
-
-  const newest =
-    zones
-      ?.map((z) => z.updatedAt)
-      .filter(Boolean)
-      .sort()
-      .at(-1) ?? null;
-
-  return (
-    <section
-      aria-labelledby="crowd-h"
-      className="flex flex-col gap-3 self-start rounded-2xl border border-ds-border bg-ds-surface p-4 [grid-area:crowd] sm:p-[18px]"
-    >
-      <div className="flex items-baseline justify-between gap-2">
-        <h2 id="crowd-h" className="text-[15px] font-semibold sm:text-base">
-          How busy is it?
-        </h2>
-        <span className="text-xs text-ds-muted">{minutesAgo(newest)}</span>
-      </div>
-      {zones === null && !failed && <p className="py-2 text-sm text-ds-muted">Loading crowd levels…</p>}
-      {failed && zones === null && (
-        <p className="py-2 text-sm text-ds-muted">Crowd levels aren’t available right now.</p>
-      )}
-      {zones && zones.length === 0 && (
-        <p className="py-2 text-sm text-ds-muted">No areas are being monitored yet.</p>
-      )}
-      {zones && zones.length > 0 && (
-        <ul className="text-sm">
-          {zones.map((z, i) => (
-            <li
-              key={z.id}
-              className={cn(
-                'flex items-center justify-between gap-3 py-2.5',
-                i < zones.length - 1 && 'border-b border-ds-divider',
-              )}
-            >
-              <span className="min-w-0 truncate">{z.name}</span>
-              <span
-                className={cn(
-                  'inline-flex flex-none items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-semibold',
-                  LEVEL_STYLE[z.level].pill,
-                )}
-              >
-                <span className={cn('h-1.5 w-1.5 rounded-full', LEVEL_STYLE[z.level].dot)} aria-hidden />
-                {CROWD_WORD[z.level]}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
     </section>
   );
 }

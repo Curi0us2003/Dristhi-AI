@@ -161,6 +161,11 @@ def test_event_qr_code(api, admin, session):
     assert r.content[:8] == b"\x89PNG\r\n\x1a\n"
     assert f"event-{ev['slug']}-qr.png" in r.headers["content-disposition"]
 
+    staff = api.get(f"/api/events/{ev['id']}/staff-qr.png")
+    assert staff.status_code == 200 and staff.content[:8] == b"\x89PNG\r\n\x1a\n"
+    assert staff.content != r.content
+    assert f"event-{ev['slug']}-staff-qr.png" in staff.headers["content-disposition"]
+
     # Another organization's event is not found, and there is no QR without a token.
     other = Organization(name="Org Q")
     session.add(other)
@@ -169,6 +174,7 @@ def test_event_qr_code(api, admin, session):
     session.add(hidden)
     session.commit()
     assert api.get(f"/api/events/{hidden.id}/qr.png").status_code == 404
+    assert api.get(f"/api/events/{hidden.id}/staff-qr.png").status_code == 404
     api.app.dependency_overrides.clear()
     assert api.get(f"/api/events/{ev['id']}/qr.png").status_code == 401
 

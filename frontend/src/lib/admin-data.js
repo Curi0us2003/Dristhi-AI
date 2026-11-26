@@ -360,3 +360,8 @@ export function rosterViews(staff, zones) {
 export function fetchEventQr(eventId) {
   return apiBlob(`${ev(eventId)}/qr.png`);
 }
+
+/** QR code for the staff app (/staff?e=<slug>), shown on Setup → Staff. */
+export function fetchStaffQr(eventId) {
+  return apiBlob(`${ev(eventId)}/staff-qr.png`);
+}
